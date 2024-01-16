@@ -2,7 +2,6 @@ use clap::{Parser, Subcommand};
 use colored::*;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
-use tempdir::TempDir;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -100,6 +99,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempdir::TempDir;
 
     #[test]
     fn test_construct_git_path() {
