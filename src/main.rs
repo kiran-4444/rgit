@@ -1,7 +1,8 @@
 use clap::{Parser, Subcommand};
 use colored::*;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::{env, fs};
+use tempdir::TempDir;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -32,15 +33,21 @@ struct Args {
     command: Cmd,
 }
 
-fn initialize_git_dir(path: &Path) {
+fn construct_git_path(path: &Path) -> PathBuf {
+    // get current directory and construct the .rgit path
     let curr_dir = env::current_dir().expect("Failed to get current directory");
-    let creation_path = if path == Path::new(".") {
-        curr_dir
-    } else {
-        curr_dir.join(path)
-    }
-    .join(".rgit");
 
+    let creation_path = if path == Path::new(".") {
+        curr_dir.to_owned()
+    } else {
+        curr_dir.join(path).to_owned()
+    };
+
+    creation_path.join(".rgit")
+}
+
+fn initialize_git_dir(path: &Path) {
+    let creation_path = construct_git_path(path);
     // Remove the .rgit directory if it exists
     let if_exists = if creation_path.exists() {
         fs::remove_dir_all(&creation_path)
@@ -87,5 +94,54 @@ fn main() {
             let repo_name = name.unwrap_or_else(|| String::from("."));
             initialize_git_dir(Path::new(&repo_name));
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_construct_git_path() {
+        let path = Path::new(".");
+        let git_path = construct_git_path(path);
+        assert_eq!(
+            git_path,
+            Path::new(env::current_dir().unwrap().to_str().unwrap()).join(".rgit")
+        );
+
+        let path = Path::new("test");
+        let git_path = construct_git_path(path);
+        assert_eq!(
+            git_path,
+            Path::new(env::current_dir().unwrap().to_str().unwrap())
+                .join("test")
+                .join(".rgit")
+        );
+
+        let path = Path::new("test/test2");
+        let git_path = construct_git_path(path);
+        assert_eq!(
+            git_path,
+            Path::new(env::current_dir().unwrap().to_str().unwrap())
+                .join("test")
+                .join("test2")
+                .join(".rgit")
+        );
+    }
+
+    #[test]
+    fn test_initialize_git_dir() {
+        // let path = Path::new(".");
+        let tmpdir = TempDir::new("test_initialize_git_dir").expect("Failed to create temp dir");
+        initialize_git_dir(tmpdir.path());
+        let git_path = construct_git_path(tmpdir.path());
+        assert!(git_path.exists());
+
+        let tmpdir = TempDir::new("test_initialize_git_dir").expect("Failed to create temp dir");
+        fs::create_dir_all(tmpdir.path().join("test")).unwrap();
+        initialize_git_dir(&tmpdir.path().join("test"));
+        let git_path = construct_git_path(&tmpdir.path().join("test"));
+        assert!(git_path.exists());
     }
 }
