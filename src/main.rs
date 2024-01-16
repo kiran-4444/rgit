@@ -99,6 +99,8 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_cmd::*;
+    use predicates::prelude::*;
     use tempdir::TempDir;
 
     #[test]
@@ -157,5 +159,93 @@ mod tests {
         initialize_git_dir(&tmpdir.path().join("test"));
         let git_path = construct_git_path(&tmpdir.path().join("test"));
         assert!(git_path.exists());
+    }
+
+    #[test]
+    fn test_cmd_init() {
+        let args = Args::parse_from(&["rgit", "init"]);
+        assert_eq!(
+            args,
+            Args {
+                command: Cmd::Init { name: None }
+            }
+        );
+
+        let args = Args::parse_from(&["rgit", "init", "test"]);
+        assert_eq!(
+            args,
+            Args {
+                command: Cmd::Init {
+                    name: Some(String::from("test"))
+                }
+            }
+        );
+
+        let mut cmd = Command::cargo_bin("rgit").unwrap();
+
+        cmd.arg("init").assert().success();
+        let git_path = construct_git_path(Path::new("."));
+        assert!(git_path.exists());
+        fs::remove_dir(git_path).unwrap(); // remove the .rgit directory
+
+        let mut cmd = Command::cargo_bin("rgit").unwrap();
+        let argument = "test_dir";
+        cmd.arg("init").arg(&argument).assert().success();
+        let git_path = construct_git_path(Path::new(argument));
+        assert!(git_path.exists());
+        fs::remove_dir_all(&git_path).unwrap(); // remove the .rgit directory
+        fs::remove_dir_all(Path::new(argument)).unwrap(); // remove the test_dir directory
+
+        Command::cargo_bin("rgit")
+            .unwrap()
+            .arg("init")
+            .assert()
+            .stdout(
+                predicate::str::contains("Initialized empty Git repository in")
+                    .and(predicate::str::ends_with(".rgit\n")),
+            );
+        let git_path = construct_git_path(Path::new("."));
+        fs::remove_dir(git_path).unwrap(); // remove the .rgit directory
+
+        Command::cargo_bin("rgit")
+            .unwrap()
+            .arg("init")
+            .arg(argument)
+            .assert()
+            .stdout(
+                predicate::str::contains("Initialized empty Git repository in")
+                    .and(predicate::str::ends_with(".rgit\n")),
+            );
+        fs::remove_dir_all(Path::new(argument)).unwrap(); // remove the test_dir directory
+
+        // Test if the .rgit directory is reinitialized
+        let mut cmd = Command::cargo_bin("rgit").unwrap();
+        cmd.arg("init").assert().success();
+        let git_path = construct_git_path(Path::new("."));
+        Command::cargo_bin("rgit")
+            .unwrap()
+            .arg("init")
+            .assert()
+            .stdout(
+                predicate::str::contains("Reinitialized empty Git repository in")
+                    .and(predicate::str::ends_with(".rgit\n")),
+            );
+        fs::remove_dir(git_path).unwrap(); // remove the .rgit directory
+
+        let mut cmd = Command::cargo_bin("rgit").unwrap();
+        cmd.arg("init").arg(argument).assert().success();
+        let git_path = construct_git_path(Path::new(argument));
+        Command::cargo_bin("rgit")
+            .unwrap()
+            .arg("init")
+            .arg(argument)
+            .assert()
+            .stdout(
+                predicate::str::contains("Reinitialized empty Git repository in")
+                    .and(predicate::str::ends_with(".rgit\n")),
+            );
+
+        fs::remove_dir_all(&git_path).unwrap(); // remove the .rgit directory
+        fs::remove_dir_all(Path::new(argument)).unwrap(); // remove the test_dir directory
     }
 }
