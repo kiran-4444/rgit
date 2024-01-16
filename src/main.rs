@@ -132,7 +132,6 @@ mod tests {
 
     #[test]
     fn test_initialize_git_dir() {
-        // let path = Path::new(".");
         let tmpdir = TempDir::new("test_initialize_git_dir").expect("Failed to create temp dir");
         initialize_git_dir(tmpdir.path());
         let git_path = construct_git_path(tmpdir.path());
@@ -140,6 +139,21 @@ mod tests {
 
         let tmpdir = TempDir::new("test_initialize_git_dir").expect("Failed to create temp dir");
         fs::create_dir_all(tmpdir.path().join("test")).unwrap();
+        initialize_git_dir(&tmpdir.path().join("test"));
+        let git_path = construct_git_path(&tmpdir.path().join("test"));
+        assert!(git_path.exists());
+    }
+
+    #[test]
+    fn test_initialize_git_dir_with_existing_dir() {
+        let tmpdir = TempDir::new("test_initialize_git_dir").expect("Failed to create temp dir");
+        fs::create_dir_all(tmpdir.path().join(".rgit")).unwrap();
+        initialize_git_dir(tmpdir.path());
+        let git_path = construct_git_path(tmpdir.path());
+        assert!(git_path.exists());
+
+        let tmpdir = TempDir::new("test_initialize_git_dir").expect("Failed to create temp dir");
+        fs::create_dir_all(tmpdir.path().join("test").join(".rgit")).unwrap();
         initialize_git_dir(&tmpdir.path().join("test"));
         let git_path = construct_git_path(&tmpdir.path().join("test"));
         assert!(git_path.exists());
