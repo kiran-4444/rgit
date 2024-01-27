@@ -1,5 +1,5 @@
 [package]
-name = "rgit"
+name = "rGit"
 description = "A git implementation in Rust"
 license = "MIT OR Apache-2.0"
 authors = ["Chandra Kiran G <chandrakiran.g19@gmail.com>"]
