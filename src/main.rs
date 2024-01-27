@@ -69,6 +69,33 @@ fn initialize_git_dir(path: &Path) {
         })
         .ok();
 
+    // Create the objects directory
+    fs::create_dir_all(&creation_path.join("objects"))
+        .map_err(|err| {
+            let console_output = format!("Failed to initialize git: {}", err);
+            eprintln!("{}", console_output.red().bold());
+            std::process::exit(1);
+        })
+        .ok();
+
+    // Create the refs directory
+    fs::create_dir_all(&creation_path.join("refs"))
+        .map_err(|err| {
+            let console_output = format!("Failed to initialize git: {}", err);
+            eprintln!("{}", console_output.red().bold());
+            std::process::exit(1);
+        })
+        .ok();
+
+    // Create the refs/heads directory
+    fs::create_dir_all(&creation_path.join("refs").join("heads"))
+        .map_err(|err| {
+            let console_output = format!("Failed to initialize git: {}", err);
+            eprintln!("{}", console_output.red().bold());
+            std::process::exit(1);
+        })
+        .ok();
+
     // Give the user a nice message
     let console_output = if if_exists {
         format!(
@@ -186,7 +213,7 @@ mod tests {
         cmd.arg("init").assert().success();
         let git_path = construct_git_path(Path::new("."));
         assert!(git_path.exists());
-        fs::remove_dir(git_path).unwrap(); // remove the .rgit directory
+        fs::remove_dir_all(git_path).unwrap(); // remove the .rgit directory
 
         let mut cmd = Command::cargo_bin("rgit").unwrap();
         let argument = "test_dir";
@@ -205,7 +232,7 @@ mod tests {
                     .and(predicate::str::ends_with(".rgit\n")),
             );
         let git_path = construct_git_path(Path::new("."));
-        fs::remove_dir(git_path).unwrap(); // remove the .rgit directory
+        fs::remove_dir_all(git_path).unwrap(); // remove the .rgit directory
 
         Command::cargo_bin("rgit")
             .unwrap()
@@ -230,7 +257,7 @@ mod tests {
                 predicate::str::contains("Reinitialized empty Git repository in")
                     .and(predicate::str::ends_with(".rgit\n")),
             );
-        fs::remove_dir(git_path).unwrap(); // remove the .rgit directory
+        fs::remove_dir_all(git_path).unwrap(); // remove the .rgit directory
 
         let mut cmd = Command::cargo_bin("rgit").unwrap();
         cmd.arg("init").arg(argument).assert().success();
