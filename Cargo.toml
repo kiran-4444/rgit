@@ -1,6 +1,13 @@
 [package]
 name = "rgit"
 description = "A git implementation in Rust"
+license = "MIT OR Apache-2.0"
+authors = ["Chandra Kiran G <chandrakiran.g19@gmail.com>"]
+readme = "README.md"
+homepage = "https://github.com/kiran-4444/rgit"
+repository = "https://github.com/kiran-4444/rgit"
+keywords = ["git", "rust", "cli"]
+categories = ["development-tools::version-control"]
 version = "0.1.0"
 edition = "2021"
 
