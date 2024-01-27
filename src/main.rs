@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn test_cmd_init() {
-        let args = Args::parse_from(&["rgit", "init"]);
+        let args = Args::parse_from(&["r_git", "init"]);
         assert_eq!(
             args,
             Args {
@@ -207,7 +207,7 @@ mod tests {
             }
         );
 
-        let args = Args::parse_from(&["rgit", "init", "test"]);
+        let args = Args::parse_from(&["r_git", "init", "test"]);
         assert_eq!(
             args,
             Args {
@@ -217,7 +217,7 @@ mod tests {
             }
         );
 
-        let mut cmd = Command::cargo_bin("rgit").unwrap();
+        let mut cmd = Command::cargo_bin("r_git").unwrap();
 
         cmd.arg("init").assert().success();
         let git_path = construct_git_path(Path::new("."));
@@ -227,7 +227,7 @@ mod tests {
         assert!(git_path.join("refs").join("heads").exists());
         fs::remove_dir_all(git_path).unwrap(); // remove the .rgit directory
 
-        let mut cmd = Command::cargo_bin("rgit").unwrap();
+        let mut cmd = Command::cargo_bin("r_git").unwrap();
         let argument = "test_dir";
         cmd.arg("init").arg(&argument).assert().success();
         let git_path = construct_git_path(Path::new(argument));
@@ -238,7 +238,7 @@ mod tests {
         fs::remove_dir_all(&git_path).unwrap(); // remove the .rgit directory
         fs::remove_dir_all(Path::new(argument)).unwrap(); // remove the test_dir directory
 
-        Command::cargo_bin("rgit")
+        Command::cargo_bin("r_git")
             .unwrap()
             .arg("init")
             .assert()
@@ -249,7 +249,7 @@ mod tests {
         let git_path = construct_git_path(Path::new("."));
         fs::remove_dir_all(git_path).unwrap(); // remove the .rgit directory
 
-        Command::cargo_bin("rgit")
+        Command::cargo_bin("r_git")
             .unwrap()
             .arg("init")
             .arg(argument)
@@ -261,10 +261,10 @@ mod tests {
         fs::remove_dir_all(Path::new(argument)).unwrap(); // remove the test_dir directory
 
         // Test if the .rgit directory is reinitialized
-        let mut cmd = Command::cargo_bin("rgit").unwrap();
+        let mut cmd = Command::cargo_bin("r_git").unwrap();
         cmd.arg("init").assert().success();
         let git_path = construct_git_path(Path::new("."));
-        Command::cargo_bin("rgit")
+        Command::cargo_bin("r_git")
             .unwrap()
             .arg("init")
             .assert()
@@ -274,10 +274,10 @@ mod tests {
             );
         fs::remove_dir_all(git_path).unwrap(); // remove the .rgit directory
 
-        let mut cmd = Command::cargo_bin("rgit").unwrap();
+        let mut cmd = Command::cargo_bin("r_git").unwrap();
         cmd.arg("init").arg(argument).assert().success();
         let git_path = construct_git_path(Path::new(argument));
-        Command::cargo_bin("rgit")
+        Command::cargo_bin("r_git")
             .unwrap()
             .arg("init")
             .arg(argument)
