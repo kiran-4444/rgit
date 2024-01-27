@@ -32,8 +32,8 @@ struct Args {
     command: Cmd,
 }
 
+/// Get current directory and construct the .rgit path
 fn construct_git_path(path: &Path) -> PathBuf {
-    // get current directory and construct the .rgit path
     let curr_dir = env::current_dir().expect("Failed to get current directory");
 
     let creation_path = if path == Path::new(".") {
@@ -171,6 +171,9 @@ mod tests {
         initialize_git_dir(&tmpdir.path().join("test"));
         let git_path = construct_git_path(&tmpdir.path().join("test"));
         assert!(git_path.exists());
+        assert!(git_path.join("objects").exists());
+        assert!(git_path.join("refs").exists());
+        assert!(git_path.join("refs").join("heads").exists());
     }
 
     #[test]
@@ -180,12 +183,18 @@ mod tests {
         initialize_git_dir(tmpdir.path());
         let git_path = construct_git_path(tmpdir.path());
         assert!(git_path.exists());
+        assert!(git_path.join("objects").exists());
+        assert!(git_path.join("refs").exists());
+        assert!(git_path.join("refs").join("heads").exists());
 
         let tmpdir = TempDir::new("test_initialize_git_dir").expect("Failed to create temp dir");
         fs::create_dir_all(tmpdir.path().join("test").join(".rgit")).unwrap();
         initialize_git_dir(&tmpdir.path().join("test"));
         let git_path = construct_git_path(&tmpdir.path().join("test"));
         assert!(git_path.exists());
+        assert!(git_path.join("objects").exists());
+        assert!(git_path.join("refs").exists());
+        assert!(git_path.join("refs").join("heads").exists());
     }
 
     #[test]
@@ -213,6 +222,9 @@ mod tests {
         cmd.arg("init").assert().success();
         let git_path = construct_git_path(Path::new("."));
         assert!(git_path.exists());
+        assert!(git_path.join("objects").exists());
+        assert!(git_path.join("refs").exists());
+        assert!(git_path.join("refs").join("heads").exists());
         fs::remove_dir_all(git_path).unwrap(); // remove the .rgit directory
 
         let mut cmd = Command::cargo_bin("rgit").unwrap();
@@ -220,6 +232,9 @@ mod tests {
         cmd.arg("init").arg(&argument).assert().success();
         let git_path = construct_git_path(Path::new(argument));
         assert!(git_path.exists());
+        assert!(git_path.join("objects").exists());
+        assert!(git_path.join("refs").exists());
+        assert!(git_path.join("refs").join("heads").exists());
         fs::remove_dir_all(&git_path).unwrap(); // remove the .rgit directory
         fs::remove_dir_all(Path::new(argument)).unwrap(); // remove the test_dir directory
 
