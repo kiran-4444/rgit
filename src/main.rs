@@ -1,3 +1,5 @@
+mod commit;
+
 use clap::{Parser, Subcommand};
 use colored::*;
 use std::path::{Path, PathBuf};
@@ -21,6 +23,11 @@ pub enum Cmd {
     Init {
         #[clap(name = "name")]
         name: Option<String>,
+    },
+    #[clap(name = "commit")]
+    Commit {
+        #[clap(name = "message")]
+        message: Option<String>,
     },
 }
 
@@ -119,6 +126,13 @@ fn main() {
         Cmd::Init { name } => {
             let repo_name = name.unwrap_or_else(|| String::from("."));
             initialize_git_dir(Path::new(&repo_name));
+        }
+        Cmd::Commit { message } => {
+            println!("{}", message.unwrap_or_default());
+            let files = commit::Workspace::new(".").list_files().unwrap();
+            files.iter().for_each(|file| {
+                println!("{:?}", file);
+            })
         }
     }
 }
