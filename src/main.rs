@@ -131,7 +131,7 @@ fn main() {
             println!("{}", message.unwrap_or_default());
             let files = commit::Workspace::new(".").list_files().unwrap();
             files.iter().for_each(|file| {
-                println!("{:?}", file);
+                println!("{}", file);
             })
         }
     }

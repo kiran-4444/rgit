@@ -19,7 +19,7 @@ impl Workspace {
             .filter_map(|entry| {
                 entry.ok().and_then(|e| {
                     let file_name = e.file_name().to_string_lossy().into_owned();
-                    if !IGNORE.contains(&&file_name.as_str()) {
+                    if !IGNORE.contains(&file_name.as_str()) {
                         Some(file_name)
                     } else {
                         None
@@ -27,7 +27,6 @@ impl Workspace {
                 })
             })
             .collect();
-
         Ok(files)
     }
 }
