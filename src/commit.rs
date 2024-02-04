@@ -1,6 +1,6 @@
 use std::fs;
 
-const IGNORE: [&str; 3] = [".", "..", ".rgit"];
+const IGNORE: [&str; 4] = [".", "..", ".rgit", ".git"];
 
 pub struct Workspace {
     pathname: String,
@@ -13,8 +13,14 @@ impl Workspace {
         }
     }
 
+    pub fn read_file(&self, file: &str) -> Result<String, std::io::Error> {
+        return fs::read_to_string(file);
+    }
+
     pub fn list_files(&self) -> Result<Vec<String>, std::io::Error> {
         let entries = fs::read_dir(&self.pathname)?;
+
+        // iterate through the files in the current directory by skipping the IGNORE files or directories
         let files: Vec<String> = entries
             .filter_map(|entry| {
                 entry.ok().and_then(|e| {

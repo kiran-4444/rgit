@@ -1,4 +1,7 @@
+mod blob;
 mod commit;
+mod database;
+pub mod utils;
 
 use clap::{Parser, Subcommand};
 use colored::*;
@@ -129,9 +132,16 @@ fn main() {
         }
         Cmd::Commit { message } => {
             println!("{}", message.unwrap_or_default());
-            let files = commit::Workspace::new(".").list_files().unwrap();
+            let git_path = construct_git_path(Path::new("."));
+            let db_path = git_path.join("objects");
+            let db = database::Database::new(db_path.to_str().unwrap());
+            let workspace = commit::Workspace::new(".");
+            let files = workspace.list_files().unwrap();
             files.iter().for_each(|file| {
-                println!("{}", file);
+                println!("File: {}", file);
+                let data = workspace.read_file(file).expect("Error reading file");
+                let blob = blob::Blob::new(data.as_str());
+                db.store(blob);
             })
         }
     }
