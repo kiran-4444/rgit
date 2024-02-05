@@ -132,7 +132,7 @@ fn main() {
         }
         Cmd::Commit { message } => {
             println!("{}", message.unwrap_or_default());
-            let git_path = construct_git_path(Path::new("."));
+            let git_path = construct_git_path(&Path::new("."));
             let db_path = git_path.join("objects");
             let db = database::Database::new(db_path.to_str().unwrap());
             let workspace = commit::Workspace::new(".");
@@ -140,8 +140,9 @@ fn main() {
             files.iter().for_each(|file| {
                 println!("File: {}", file);
                 let data = workspace.read_file(file).expect("Error reading file");
-                let blob = blob::Blob::new(data.as_str());
-                db.store(blob);
+                let mut blob = blob::Blob::new(&data);
+                db.store(&mut blob);
+                println!("Blob: {:?}", blob);
             })
         }
     }
