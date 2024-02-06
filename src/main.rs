@@ -1,12 +1,16 @@
 mod blob;
 mod commit;
 mod database;
+mod entry;
+
 pub mod utils;
 
 use clap::{Parser, Subcommand};
 use colored::*;
 use std::path::{Path, PathBuf};
 use std::{env, fs};
+
+use crate::entry::Entry;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -137,13 +141,18 @@ fn main() {
             let db = database::Database::new(db_path.to_str().unwrap());
             let workspace = commit::Workspace::new(".");
             let files = workspace.list_files().unwrap();
-            files.iter().for_each(|file| {
-                println!("File: {}", file);
-                let data = workspace.read_file(file).expect("Error reading file");
-                let mut blob = blob::Blob::new(&data);
-                db.store(&mut blob);
-                println!("Blob: {:?}", blob);
-            })
+            let entries = files
+                .iter()
+                .map(|file| {
+                    println!("File: {}", file);
+                    let data = workspace.read_file(file).expect("Error reading file");
+                    let mut blob = blob::Blob::new(&data);
+                    db.store(&mut blob);
+                    entry::Entry::new(&file, &blob.oid.unwrap())
+                })
+                .collect::<Vec<Entry>>();
+
+            println!("{:?}", entries);
         }
     }
 }
