@@ -1,6 +1,14 @@
 use std::fs;
 
-const IGNORE: [&str; 4] = [".", "..", ".rgit", ".git"];
+const IGNORE: [&str; 7] = [
+    ".",
+    "..",
+    ".rgit",
+    ".git",
+    ".pgit",
+    "pgit.py",
+    ".mypy_cache",
+];
 
 pub struct Workspace {
     pathname: String,

@@ -2,6 +2,7 @@ mod blob;
 mod commit;
 mod database;
 mod entry;
+mod tree;
 
 pub mod utils;
 
@@ -11,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 use crate::entry::Entry;
+use crate::tree::Tree;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -144,7 +146,7 @@ fn main() {
             let entries = files
                 .iter()
                 .map(|file| {
-                    println!("File: {}", file);
+                    // println!("File: {}", file);
                     let data = workspace.read_file(file).expect("Error reading file");
                     let mut blob = blob::Blob::new(&data);
                     db.store(&mut blob);
@@ -152,7 +154,9 @@ fn main() {
                 })
                 .collect::<Vec<Entry>>();
 
-            println!("{:?}", entries);
+            let mut tree = Tree::new(entries);
+            db.store_tree(&mut tree);
+            println!("{:?}", tree.oid);
         }
     }
 }
