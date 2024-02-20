@@ -1,9 +1,10 @@
+use std::iter::zip;
+
 use crate::entry::Entry;
-use itertools::{enumerate, Itertools};
+use itertools::Itertools;
 
 #[derive(Debug)]
 pub struct Tree {
-    pub entry_format: String,
     pub mode: String,
     pub oid: Option<String>,
     pub entries: Vec<Entry>,
@@ -12,7 +13,6 @@ pub struct Tree {
 impl Tree {
     pub fn new(entries: Vec<Entry>) -> Self {
         Self {
-            entry_format: "Z*H40".to_owned(),
             mode: "100644".to_owned(),
             oid: None,
             entries,
@@ -31,7 +31,8 @@ impl Tree {
         let mut entries_vec: Vec<Entry> = self.entries.clone();
         entries_vec.sort_by(|a, b| a.name.cmp(&b.name));
 
-        let entries = entries_vec
+        let mut hex_oids: Vec<String> = Vec::new();
+        let mut entries = entries_vec
             .iter()
             .map(|entry| {
                 let mut output: Vec<&[u8]> = Vec::new();
@@ -44,9 +45,13 @@ impl Tree {
                 let null_byte_array = &[b'\x00'];
                 output.push(null_byte_array);
 
-                println!("output: {:?}", output);
+                // println!("output: {:?}", output);
                 // let oid_bytes: &[u8] = &hex::decode(&entry.oid).unwrap();
                 // output.push(oid_bytes);
+
+                // oid_bytes = hex::decode(&entry.oid).unwrap();
+                // output.push(hex::encode(&entry.oid).as_bytes());
+                hex_oids.push(hex::encode(&entry.oid));
                 output
             })
             .collect_vec();
@@ -55,8 +60,9 @@ impl Tree {
 
         // concatenate the entries
         let mut concatenated_entries: Vec<u8> = Vec::new();
-        for entry in entries {
-            for e in entry {
+        for (entry, hex_oid) in zip(&mut entries, &hex_oids) {
+            entry.push(&hex_oid.as_bytes());
+            for e in entry.clone() {
                 concatenated_entries.extend(e);
             }
         }
