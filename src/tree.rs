@@ -27,17 +27,23 @@ impl Tree {
         self.oid = Some(oid.to_string());
     }
 
-    pub fn tree_content(&self) -> Vec<u8> {
+    fn decode_hex_oid(&self, oid: &str) -> Vec<u8> {
+        let decoded = hex::decode(oid).unwrap();
+        decoded
+    }
+
+    pub fn tree_content(&self) -> String {
         let mut entries_vec: Vec<Entry> = self.entries.clone();
         entries_vec.sort_by(|a, b| a.name.cmp(&b.name));
 
-        let mut hex_oids: Vec<String> = Vec::new();
+        let mut hex_oids: Vec<Vec<u8>> = Vec::new();
         let mut entries = entries_vec
             .iter()
             .map(|entry| {
                 let mut output: Vec<&[u8]> = Vec::new();
 
                 output.push(self.mode.as_bytes());
+                output.push(&[b' ']);
 
                 let entry_name_bytes = entry.name.as_bytes();
                 output.push(entry_name_bytes);
@@ -45,28 +51,28 @@ impl Tree {
                 let null_byte_array = &[b'\x00'];
                 output.push(null_byte_array);
 
-                // println!("output: {:?}", output);
-                // let oid_bytes: &[u8] = &hex::decode(&entry.oid).unwrap();
-                // output.push(oid_bytes);
-
-                // oid_bytes = hex::decode(&entry.oid).unwrap();
-                // output.push(hex::encode(&entry.oid).as_bytes());
-                hex_oids.push(hex::encode(&entry.oid));
+                let decoded = self.decode_hex_oid(&entry.oid);
+                hex_oids.push(decoded.clone());
                 output
             })
             .collect_vec();
 
-        // println!("entries: {:?}", entries);
-
         // concatenate the entries
         let mut concatenated_entries: Vec<u8> = Vec::new();
         for (entry, hex_oid) in zip(&mut entries, &hex_oids) {
-            entry.push(&hex_oid.as_bytes());
+            entry.push(&hex_oid);
             for e in entry.clone() {
                 concatenated_entries.extend(e);
             }
         }
 
+        dbg!(&concatenated_entries);
+        // let utf_str = String::from_utf8(concatenated_entries).unwrap();
+
+        // the content will not be a valid utf-8 string, so we need to manually convert it to a string
         concatenated_entries
+            .iter()
+            .map(|&c| c as char)
+            .collect::<String>()
     }
 }

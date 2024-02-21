@@ -29,7 +29,7 @@ impl Database {
     pub fn store_tree(&self, tree: &mut Tree) {
         // store the tree in the database
         let content = tree.tree_content();
-        let content = format!("{} {}\0{:?}", tree.blob_type(), content.len(), content);
+        let content = format!("{} {}\0{}", tree.blob_type(), content.len(), content);
         let hashed_content = hash_content(&content);
         tree.set_oid(&hashed_content);
         self.write_object(&hashed_content, &content);
