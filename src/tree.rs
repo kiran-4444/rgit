@@ -60,15 +60,12 @@ impl Tree {
         // concatenate the entries
         let mut concatenated_entries: Vec<u8> = Vec::new();
         for (entry, hex_oid) in zip(&mut entries, &hex_oids) {
+            dbg!(&hex_oid);
             entry.push(&hex_oid);
             for e in entry.clone() {
                 concatenated_entries.extend(e);
             }
         }
-
-        dbg!(&concatenated_entries);
-        // let utf_str = String::from_utf8(concatenated_entries).unwrap();
-
         // the content will not be a valid utf-8 string, so we need to manually convert it to a string
         concatenated_entries
             .iter()
