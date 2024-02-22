@@ -1,8 +1,7 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::blob::Blob;
-use crate::tree::Tree;
+use crate::storable::Storable;
 use crate::utils::compress_content;
 use crate::utils::hash_content;
 
@@ -16,22 +15,16 @@ impl Database {
             db_path: db_path.to_string(),
         }
     }
-    pub fn store(&self, blob: &mut Blob) {
-        // store the blob in the database
-        let content_size = blob.data.len();
-        let content = blob.data();
-        let content = format!("{} {}\0{}", blob.blob_type(), content_size, content);
-        let hashed_content = hash_content(&content);
-        blob.set_oid(&hashed_content);
-        self.write_object(&hashed_content, &content);
-    }
 
-    pub fn store_tree(&self, tree: &mut Tree) {
-        // store the tree in the database
-        let content = tree.tree_content();
-        let content = format!("{} {}\0{}", tree.blob_type(), content.len(), content);
+    pub fn store<T>(&self, storable: &mut T)
+    where
+        T: Storable,
+    {
+        // store the storable in the database
+        let content = storable.data();
+        let content = format!("{} {}\0{}", storable.blob_type(), content.len(), content);
         let hashed_content = hash_content(&content);
-        tree.set_oid(&hashed_content);
+        storable.set_oid(&hashed_content);
         self.write_object(&hashed_content, &content);
     }
 

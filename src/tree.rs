@@ -1,6 +1,6 @@
 use std::iter::zip;
 
-use crate::entry::Entry;
+use crate::{entry::Entry, storable::Storable};
 use itertools::Itertools;
 
 #[derive(Debug)]
@@ -18,21 +18,18 @@ impl Tree {
             entries,
         }
     }
+}
 
-    pub fn blob_type(&self) -> &str {
+impl Storable for Tree {
+    fn blob_type(&self) -> &str {
         "tree"
     }
 
-    pub fn set_oid(&mut self, oid: &str) {
+    fn set_oid(&mut self, oid: &str) {
         self.oid = Some(oid.to_string());
     }
 
-    fn decode_hex_oid(&self, oid: &str) -> Vec<u8> {
-        let decoded = hex::decode(oid).unwrap();
-        decoded
-    }
-
-    pub fn tree_content(&self) -> String {
+    fn data(&self) -> String {
         let mut entries_vec: Vec<Entry> = self.entries.clone();
         entries_vec.sort_by(|a, b| a.name.cmp(&b.name));
 
@@ -51,7 +48,7 @@ impl Tree {
                 let null_byte_array = &[b'\x00'];
                 output.push(null_byte_array);
 
-                let decoded = self.decode_hex_oid(&entry.oid);
+                let decoded = hex::decode(&entry.oid).unwrap();
                 hex_oids.push(decoded.clone());
                 output
             })

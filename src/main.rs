@@ -2,6 +2,7 @@ mod blob;
 mod commit;
 mod database;
 mod entry;
+mod storable;
 mod tree;
 
 pub mod utils;
@@ -155,7 +156,7 @@ fn main() {
                 .collect::<Vec<Entry>>();
 
             let mut tree = Tree::new(entries);
-            db.store_tree(&mut tree);
+            db.store(&mut tree);
             println!("{:?}", tree.oid);
         }
     }

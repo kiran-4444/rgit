@@ -1,3 +1,5 @@
+use crate::storable::Storable;
+
 #[derive(Debug, Clone)]
 pub struct Blob {
     pub data: String,
@@ -11,16 +13,18 @@ impl Blob {
             data: data.to_owned(),
         }
     }
+}
 
-    pub fn set_oid(&mut self, oid: &str) {
+impl Storable for Blob {
+    fn set_oid(&mut self, oid: &str) {
         self.oid = Some(oid.to_owned());
     }
 
-    pub fn blob_type(&self) -> &str {
+    fn blob_type(&self) -> &str {
         "blob"
     }
 
-    pub fn data(&self) -> &str {
-        &self.data
+    fn data(&self) -> String {
+        self.data.to_owned()
     }
 }
