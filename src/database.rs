@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::storable::Storable;
+use crate::objects::Storable;
 use crate::utils::compress_content;
 use crate::utils::hash_content;
 

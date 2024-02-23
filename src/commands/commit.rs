@@ -22,7 +22,7 @@ impl Workspace {
     }
 
     pub fn read_file(&self, file: &str) -> Result<String, std::io::Error> {
-        return fs::read_to_string(file);
+        fs::read_to_string(file)
     }
 
     pub fn list_files(&self) -> Result<Vec<String>, std::io::Error> {

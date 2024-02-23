@@ -1,7 +1,9 @@
 use std::iter::zip;
 
-use crate::{entry::Entry, storable::Storable};
+use crate::entry::Entry;
 use itertools::Itertools;
+
+use super::storable::Storable;
 
 #[derive(Debug)]
 pub struct Tree {

@@ -1,19 +1,16 @@
-mod blob;
-mod commit;
+mod commands;
 mod database;
 mod entry;
-mod storable;
-mod tree;
+mod objects;
 
 pub mod utils;
 
 use clap::{Parser, Subcommand};
-use colored::*;
-use std::path::{Path, PathBuf};
-use std::{env, fs};
+use commands::{construct_git_path, initialize_git_dir};
+use std::env;
+use std::path::Path;
 
-use crate::entry::Entry;
-use crate::tree::Tree;
+use entry::Entry;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -49,86 +46,6 @@ struct Args {
     command: Cmd,
 }
 
-/// Get current directory and construct the .rgit path
-fn construct_git_path(path: &Path) -> PathBuf {
-    let curr_dir = env::current_dir().expect("Failed to get current directory");
-
-    let creation_path = if path == Path::new(".") {
-        curr_dir.to_owned()
-    } else {
-        curr_dir.join(path).to_owned()
-    };
-
-    creation_path.join(".rgit")
-}
-
-fn initialize_git_dir(path: &Path) {
-    let creation_path = construct_git_path(path);
-    // Remove the .rgit directory if it exists
-    let if_exists = if creation_path.exists() {
-        fs::remove_dir_all(&creation_path)
-            .map_err(|err| {
-                let console_output = format!("Failed to reinitialize git: {}", err);
-                eprintln!("{}", console_output.red().bold());
-                std::process::exit(1);
-            })
-            .is_ok()
-    } else {
-        false
-    };
-
-    // Create the .rgit directory with its parent directories
-    fs::create_dir_all(&creation_path)
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
-
-    // Create the objects directory
-    fs::create_dir_all(&creation_path.join("objects"))
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
-
-    // Create the refs directory
-    fs::create_dir_all(&creation_path.join("refs"))
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
-
-    // Create the refs/heads directory
-    fs::create_dir_all(&creation_path.join("refs").join("heads"))
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
-
-    // Give the user a nice message
-    let console_output = if if_exists {
-        format!(
-            "Reinitialized empty Git repository in {}",
-            creation_path.to_str().unwrap()
-        )
-    } else {
-        format!(
-            "Initialized empty Git repository in {}",
-            creation_path.to_str().unwrap()
-        )
-    };
-
-    println!("{}", console_output.green());
-}
-
 fn main() {
     let args = Args::parse();
 
@@ -142,20 +59,20 @@ fn main() {
             let git_path = construct_git_path(&Path::new("."));
             let db_path = git_path.join("objects");
             let db = database::Database::new(db_path.to_str().unwrap());
-            let workspace = commit::Workspace::new(".");
+            let workspace = commands::Workspace::new(".");
             let files = workspace.list_files().unwrap();
             let entries = files
                 .iter()
                 .map(|file| {
                     // println!("File: {}", file);
                     let data = workspace.read_file(file).expect("Error reading file");
-                    let mut blob = blob::Blob::new(&data);
+                    let mut blob = objects::Blob::new(&data);
                     db.store(&mut blob);
                     entry::Entry::new(&file, &blob.oid.unwrap())
                 })
                 .collect::<Vec<Entry>>();
 
-            let mut tree = Tree::new(entries);
+            let mut tree = objects::Tree::new(entries);
             db.store(&mut tree);
             println!("{:?}", tree.oid);
         }
@@ -164,6 +81,8 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
     use assert_cmd::*;
     use predicates::prelude::*;
