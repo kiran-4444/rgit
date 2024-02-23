@@ -1,6 +1,5 @@
 mod commands;
 mod database;
-mod entry;
 mod objects;
 
 pub mod utils;
@@ -9,8 +8,6 @@ use clap::{Parser, Subcommand};
 use commands::{construct_git_path, initialize_git_dir};
 use std::env;
 use std::path::Path;
-
-use entry::Entry;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -68,9 +65,9 @@ fn main() {
                     let data = workspace.read_file(file).expect("Error reading file");
                     let mut blob = objects::Blob::new(&data);
                     db.store(&mut blob);
-                    entry::Entry::new(&file, &blob.oid.unwrap())
+                    objects::Entry::new(&file, &blob.oid.unwrap())
                 })
-                .collect::<Vec<Entry>>();
+                .collect::<Vec<objects::Entry>>();
 
             let mut tree = objects::Tree::new(entries);
             db.store(&mut tree);
