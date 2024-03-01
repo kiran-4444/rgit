@@ -1,5 +1,5 @@
-mod commit;
 mod init;
+mod workspace;
 
-pub use self::commit::Workspace;
 pub use self::init::*;
+pub use self::workspace::Workspace;

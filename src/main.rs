@@ -72,6 +72,15 @@ fn main() {
             let mut tree = objects::Tree::new(entries);
             db.store(&mut tree);
             println!("{:?}", tree.oid);
+
+            let name = env::var("RGIT_AUTHOR_NAME").unwrap();
+            let email = env::var("RGIT_AUTHOR_EMAIL").unwrap();
+            let author = objects::Author::new(&name, &email);
+            println!("{:?}", author);
+            let message = "Initial commit";
+
+            let mut commit = objects::Commit::new(&tree.oid.unwrap(), author, message);
+            db.store(&mut commit);
         }
     }
 }
