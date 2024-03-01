@@ -7,6 +7,7 @@ pub mod utils;
 use clap::{Parser, Subcommand};
 use commands::{construct_git_path, initialize_git_dir};
 use std::env;
+use std::io::Write;
 use std::path::Path;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -81,6 +82,14 @@ fn main() {
 
             let mut commit = objects::Commit::new(&tree.oid.unwrap(), author, message);
             db.store(&mut commit);
+            println!("{:?}", commit);
+
+            let head = git_path.join("HEAD");
+            let mut file = std::fs::File::create(head).unwrap();
+            file.write(commit.oid.to_owned().unwrap().as_bytes())
+                .unwrap();
+
+            println!("[(root-commit) {}] {}", commit.oid.unwrap(), message);
         }
     }
 }
