@@ -2,16 +2,6 @@ use clap::Parser;
 
 use crate::utils::list_files;
 
-const IGNORE: [&str; 7] = [
-    ".",
-    "..",
-    ".rgit",
-    ".git",
-    ".pgit",
-    "pgit.py",
-    ".mypy_cache",
-];
-
 #[derive(Parser, Debug, PartialEq)]
 pub struct StatusCMD {}
 
