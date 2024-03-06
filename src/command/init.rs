@@ -1,7 +1,22 @@
+use clap::Parser;
 use colored::*;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+#[derive(Parser, Debug, PartialEq)]
+pub struct InitCMD {
+    name: Option<PathBuf>,
+}
+
+impl InitCMD {
+    pub fn run(&self) {
+        match &self.name {
+            Some(path) => initialize_git_dir(path),
+            None => initialize_git_dir(Path::new(".")),
+        }
+    }
+}
 
 pub fn construct_git_path(path: &Path) -> PathBuf {
     let curr_dir = env::current_dir().expect("Failed to get current directory");

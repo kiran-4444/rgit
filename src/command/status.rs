@@ -1,3 +1,4 @@
+use clap::Parser;
 use std::fs;
 
 const IGNORE: [&str; 7] = [
@@ -10,23 +11,19 @@ const IGNORE: [&str; 7] = [
     ".mypy_cache",
 ];
 
-pub struct Workspace {
-    pathname: String,
-}
+#[derive(Parser, Debug, PartialEq)]
+pub struct StatusCMD {}
 
-impl Workspace {
-    pub fn new(pathname: &str) -> Self {
-        Self {
-            pathname: pathname.to_string(),
+impl StatusCMD {
+    pub fn run(self) {
+        let files = self.list_files().unwrap();
+        for file in files {
+            println!("{}", file);
         }
     }
 
-    pub fn read_file(&self, file: &str) -> Result<String, std::io::Error> {
-        fs::read_to_string(file)
-    }
-
     pub fn list_files(&self) -> Result<Vec<String>, std::io::Error> {
-        let entries = fs::read_dir(&self.pathname)?;
+        let entries = fs::read_dir(".")?;
 
         // iterate through the files in the current directory by skipping the IGNORE files or directories
         let files: Vec<String> = entries
