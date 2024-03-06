@@ -3,7 +3,7 @@ use std::{env, path::Path};
 use clap::{arg, Parser};
 use std::io::Write;
 
-use crate::{command::status::StatusCMD, database, objects};
+use crate::{database, objects, utils::list_files};
 
 use super::init::construct_git_path;
 
@@ -18,13 +18,10 @@ impl CommitCMD {
         let git_path = construct_git_path(&Path::new("."));
         let db_path = git_path.join("objects");
         let db = database::Database::new(db_path.to_str().unwrap());
-        let status = StatusCMD {};
-        let files = status.list_files().unwrap();
+        let files = list_files().unwrap();
         let entries = files
             .iter()
             .map(|file| {
-                // println!("File: {}", file);
-                // let data = workspace.read_file(file).expect("Error reading file");
                 let data = std::fs::read_to_string(file).unwrap();
                 let mut blob = objects::Blob::new(&data);
                 db.store(&mut blob);
