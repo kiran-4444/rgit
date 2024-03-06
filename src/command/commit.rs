@@ -33,21 +33,30 @@ impl CommitCMD {
         db.store(&mut tree);
         println!("{:?}", tree.oid);
 
-        let name = env::var("RGIT_AUTHOR_NAME").unwrap();
-        let email = env::var("RGIT_AUTHOR_EMAIL").unwrap();
+        let (name, email) = self.get_config();
         let author = objects::Author::new(&name, &email);
         println!("{:?}", author);
-        let message = "Initial commit";
 
-        let mut commit = objects::Commit::new(&tree.oid.unwrap(), author, message);
+        let message = self.message.clone();
+        let mut commit = objects::Commit::new(&tree.oid.unwrap(), author, message.as_str());
         db.store(&mut commit);
         println!("{:?}", commit);
 
+        self.update_head(&commit);
+        println!("[(root-commit) {}] {}", commit.oid.unwrap(), message);
+    }
+
+    fn get_config(&self) -> (String, String) {
+        let name = env::var("RGIT_AUTHOR_NAME").unwrap();
+        let email = env::var("RGIT_AUTHOR_EMAIL").unwrap();
+        (name, email)
+    }
+
+    fn update_head(&self, commit: &objects::Commit) {
+        let git_path = construct_git_path(&Path::new("."));
         let head = git_path.join("HEAD");
         let mut file = std::fs::File::create(head).unwrap();
         file.write(commit.oid.to_owned().unwrap().as_bytes())
             .unwrap();
-
-        println!("[(root-commit) {}] {}", commit.oid.unwrap(), message);
     }
 }
