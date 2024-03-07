@@ -7,21 +7,18 @@ pub struct Blob {
 }
 
 impl Blob {
-    pub fn new(data: &str) -> Self {
-        Self {
-            oid: None,
-            data: data.to_owned(),
-        }
+    pub fn new(data: String) -> Self {
+        Self { oid: None, data }
     }
 }
 
 impl Storable for Blob {
-    fn set_oid(&mut self, oid: &str) {
-        self.oid = Some(oid.to_owned());
+    fn set_oid(&mut self, oid: String) {
+        self.oid = Some(oid);
     }
 
-    fn blob_type(&self) -> &str {
-        "blob"
+    fn blob_type(&self) -> String {
+        "blob".to_owned()
     }
 
     fn data(&self) -> String {

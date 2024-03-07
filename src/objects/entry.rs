@@ -5,10 +5,7 @@ pub struct Entry {
 }
 
 impl Entry {
-    pub fn new(name: &str, oid: &str) -> Self {
-        Self {
-            name: name.to_owned(),
-            oid: oid.to_owned(),
-        }
+    pub fn new(name: String, oid: String) -> Self {
+        Self { name, oid }
     }
 }

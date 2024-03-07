@@ -9,10 +9,10 @@ pub struct Author {
 }
 
 impl Author {
-    pub fn new(name: &str, email: &str) -> Self {
+    pub fn new(name: String, email: String) -> Self {
         Self {
-            name: name.to_string(),
-            email: email.to_string(),
+            name,
+            email,
             time: chrono::Local::now(),
         }
     }

@@ -6,14 +6,12 @@ use crate::utils::compress_content;
 use crate::utils::hash_content;
 
 pub struct Database {
-    pub db_path: String,
+    pub object_store: PathBuf,
 }
 
 impl Database {
-    pub fn new(db_path: &str) -> Self {
-        Self {
-            db_path: db_path.to_string(),
-        }
+    pub fn new(object_store: PathBuf) -> Self {
+        Self { object_store }
     }
 
     pub fn store<T>(&self, storable: &mut T)
@@ -24,7 +22,7 @@ impl Database {
         let content = storable.data();
         let content = format!("{} {}\0{}", storable.blob_type(), content.len(), content);
         let hashed_content = hash_content(&content);
-        storable.set_oid(&hashed_content);
+        storable.set_oid(hashed_content.to_owned());
         self.write_object(&hashed_content, &content);
     }
 
@@ -33,7 +31,7 @@ impl Database {
     }
 
     pub fn write_object(&self, name: &str, content: &str) {
-        let object_path = PathBuf::from(&self.db_path).join(&name[0..2]);
+        let object_path = PathBuf::from(&self.object_store).join(&name[0..2]);
         std::fs::create_dir_all(&object_path).unwrap();
         let object_name = object_path.join(&name[2..]);
         // generate a temporary file and write the content to it, then rename it to the final nam

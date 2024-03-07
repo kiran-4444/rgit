@@ -11,23 +11,23 @@ pub struct Commit {
 }
 
 impl Commit {
-    pub fn new(tree: &str, author: Author, message: &str) -> Self {
+    pub fn new(tree: String, author: Author, message: String) -> Self {
         Self {
             oid: None,
-            tree: tree.to_string(),
+            tree,
             author,
-            message: message.to_string(),
+            message,
         }
     }
 }
 
 impl Storable for Commit {
-    fn set_oid(&mut self, oid: &str) {
-        self.oid = Some(oid.to_string());
+    fn set_oid(&mut self, oid: String) {
+        self.oid = Some(oid);
     }
 
-    fn blob_type(&self) -> &str {
-        "commit"
+    fn blob_type(&self) -> String {
+        "commit".to_owned()
     }
 
     fn data(&self) -> String {

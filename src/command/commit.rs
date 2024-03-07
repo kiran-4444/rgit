@@ -3,7 +3,9 @@ use std::{env, path::Path};
 use clap::{arg, Parser};
 use std::io::Write;
 
-use crate::{database, objects, utils::list_files};
+use crate::{database, utils::list_files};
+
+use crate::objects::*;
 
 use super::init::construct_git_path;
 
@@ -16,43 +18,43 @@ pub struct CommitCMD {
 impl CommitCMD {
     pub fn run(&self) {
         let git_path = construct_git_path(&Path::new("."));
-        let db_path = git_path.join("objects");
-        let db = database::Database::new(db_path.to_str().unwrap());
+        let object_store = git_path.join("objects");
+        let db = database::Database::new(object_store);
         let files = list_files().unwrap();
         let entries = files
             .iter()
             .map(|file| {
                 let data = std::fs::read_to_string(file).unwrap();
-                let mut blob = objects::Blob::new(&data);
+                let mut blob = Blob::new(data.to_owned());
                 db.store(&mut blob);
-                objects::Entry::new(&file, &blob.oid.unwrap())
+                Entry::new(file.to_owned(), blob.oid.unwrap().to_owned())
             })
-            .collect::<Vec<objects::Entry>>();
+            .collect::<Vec<Entry>>();
 
-        let mut tree = objects::Tree::new(entries);
+        let mut tree = Tree::new(entries);
         db.store(&mut tree);
         println!("{:?}", tree.oid);
 
         let (name, email) = self.get_config();
-        let author = objects::Author::new(&name, &email);
+        let author = Author::new(name.to_owned(), email.to_owned());
         println!("{:?}", author);
 
         let message = self.message.clone();
-        let mut commit = objects::Commit::new(&tree.oid.unwrap(), author, message.as_str());
+        let mut commit = Commit::new(tree.oid.unwrap().to_owned(), author, message.to_owned());
         db.store(&mut commit);
         println!("{:?}", commit);
 
         self.update_head(&commit);
         println!("[(root-commit) {}] {}", commit.oid.unwrap(), message);
     }
-
+    /// Get the author name and email from the environment variables
     fn get_config(&self) -> (String, String) {
         let name = env::var("RGIT_AUTHOR_NAME").unwrap();
         let email = env::var("RGIT_AUTHOR_EMAIL").unwrap();
         (name, email)
     }
 
-    fn update_head(&self, commit: &objects::Commit) {
+    fn update_head(&self, commit: &Commit) {
         let git_path = construct_git_path(&Path::new("."));
         let head = git_path.join("HEAD");
         let mut file = std::fs::File::create(head).unwrap();

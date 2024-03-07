@@ -22,12 +22,12 @@ impl Tree {
 }
 
 impl Storable for Tree {
-    fn blob_type(&self) -> &str {
-        "tree"
+    fn blob_type(&self) -> String {
+        "tree".to_owned()
     }
 
-    fn set_oid(&mut self, oid: &str) {
-        self.oid = Some(oid.to_string());
+    fn set_oid(&mut self, oid: String) {
+        self.oid = Some(oid);
     }
 
     fn data(&self) -> String {
