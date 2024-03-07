@@ -22,9 +22,9 @@ pub fn construct_git_path(path: &Path) -> PathBuf {
     let curr_dir = env::current_dir().expect("Failed to get current directory");
 
     let creation_path = if path == Path::new(".") {
-        curr_dir.to_owned()
+        curr_dir
     } else {
-        curr_dir.join(path).to_owned()
+        curr_dir.join(path)
     };
 
     creation_path.join(".rgit")

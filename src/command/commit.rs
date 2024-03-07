@@ -36,11 +36,11 @@ impl CommitCMD {
         println!("{:?}", tree.oid);
 
         let (name, email) = self.get_config();
-        let author = Author::new(name.to_owned(), email.to_owned());
+        let author = Author::new(&name, &email);
         println!("{:?}", author);
 
         let message = self.message.clone();
-        let mut commit = Commit::new(tree.oid.unwrap().to_owned(), author, message.to_owned());
+        let mut commit = Commit::new(tree.oid.unwrap(), author, &message);
         db.store(&mut commit);
         println!("{:?}", commit);
 

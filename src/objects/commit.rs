@@ -3,15 +3,15 @@ use crate::objects::Author;
 use super::storable::Storable;
 
 #[derive(Debug, Clone)]
-pub struct Commit {
+pub struct Commit<'a> {
     pub oid: Option<String>,
     pub tree: String,
-    pub author: Author,
-    pub message: String,
+    pub author: Author<'a>,
+    pub message: &'a str,
 }
 
-impl Commit {
-    pub fn new(tree: String, author: Author, message: String) -> Self {
+impl<'a> Commit<'a> {
+    pub fn new(tree: String, author: Author<'a>, message: &'a str) -> Self {
         Self {
             oid: None,
             tree,
@@ -21,7 +21,7 @@ impl Commit {
     }
 }
 
-impl Storable for Commit {
+impl<'a> Storable for Commit<'a> {
     fn set_oid(&mut self, oid: String) {
         self.oid = Some(oid);
     }
