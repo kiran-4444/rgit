@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::{env, path::Path};
 
 use clap::{arg, Parser};
