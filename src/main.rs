@@ -1,6 +1,8 @@
 mod command;
 mod database;
 mod objects;
+mod refs;
+mod workspace;
 
 pub mod utils;
 

@@ -4,6 +4,7 @@ use super::storable::Storable;
 
 #[derive(Debug, Clone)]
 pub struct Commit<'a> {
+    pub parent: Option<String>,
     pub oid: Option<String>,
     pub tree: String,
     pub author: Author<'a>,
@@ -11,8 +12,9 @@ pub struct Commit<'a> {
 }
 
 impl<'a> Commit<'a> {
-    pub fn new(tree: String, author: Author<'a>, message: &'a str) -> Self {
+    pub fn new(parent: Option<String>, tree: String, author: Author<'a>, message: &'a str) -> Self {
         Self {
+            parent,
             oid: None,
             tree,
             author,
@@ -31,9 +33,16 @@ impl<'a> Storable for Commit<'a> {
     }
 
     fn data(&self) -> String {
-        format!(
-            "tree {}\nauthor {}\ncomitter {}\n\n{}\n",
-            self.tree, self.author, self.author, self.message
-        )
+        if let Some(parent) = &self.parent {
+            format!(
+                "tree {}\nparent {}\nauthor {}\ncomitter {}\n\n{}\n",
+                self.tree, parent, self.author, self.author, self.message
+            )
+        } else {
+            format!(
+                "tree {}\nauthor {}\ncomitter {}\n\n{}\n",
+                self.tree, self.author, self.author, self.message
+            )
+        }
     }
 }

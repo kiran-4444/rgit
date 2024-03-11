@@ -1,12 +1,14 @@
+use std::path::PathBuf;
 use std::{env, path::Path};
 
 use clap::{arg, Parser};
 use colored::Colorize;
-use std::io::Write;
 
-use crate::{database, utils::list_files};
+use crate::database;
+use crate::refs;
 
 use crate::objects::*;
+use crate::workspace;
 
 use super::init::{check_if_git_dir_exists, construct_git_path};
 
@@ -29,9 +31,11 @@ impl CommitCMD {
             true => (),
         }
         let git_path = construct_git_path(&Path::new("."));
+        let refs = refs::Refs::new(git_path.clone());
         let object_store = git_path.join("objects");
         let db = database::Database::new(object_store);
-        let files = list_files().unwrap();
+        let workspace = workspace::Workspace::new(PathBuf::from("."));
+        let files = workspace.list_files().unwrap();
         let entries = files
             .iter()
             .map(|file| {
@@ -51,13 +55,25 @@ impl CommitCMD {
         let author = Author::new(&name, &email);
         println!("{:?}", author);
 
+        let parent = refs.read_head();
         let message = self.message.clone();
-        let mut commit = Commit::new(tree.oid.unwrap(), author, &message);
+        let mut commit = Commit::new(parent.to_owned(), tree.oid.unwrap(), author, &message);
         db.store(&mut commit);
         println!("{:?}", commit);
 
-        self.update_head(&commit);
-        println!("[(root-commit) {}] {}", commit.oid.unwrap(), message);
+        let commit_oid = commit.oid.clone().unwrap();
+        refs.update_head(&commit_oid);
+
+        dbg!(&parent);
+
+        match parent {
+            Some(_) => {
+                println!("{} {}", commit_oid, commit.message);
+            }
+            None => {
+                println!("(root-commit) {} {}", commit_oid, commit.message);
+            }
+        }
     }
     /// Get the author name and email from the environment variables
     fn get_config(&self) -> (String, String) {
@@ -65,14 +81,6 @@ impl CommitCMD {
             env::var("RGIT_AUTHOR_NAME").unwrap(),
             env::var("RGIT_AUTHOR_EMAIL").unwrap(),
         )
-    }
-
-    fn update_head(&self, commit: &Commit) {
-        let git_path = construct_git_path(&Path::new("."));
-        let head = git_path.join("HEAD");
-        let mut file = std::fs::File::create(head).unwrap();
-        file.write(commit.oid.to_owned().unwrap().as_bytes())
-            .unwrap();
     }
 }
 
