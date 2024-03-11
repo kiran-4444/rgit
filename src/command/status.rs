@@ -11,7 +11,7 @@ impl StatusCMD {
         let workspace = workspace::Workspace::new(PathBuf::from("."));
         let files = workspace.list_files().unwrap();
         for file in files {
-            println!("{}", file);
+            println!("{}", file.0.unwrap());
         }
     }
 }

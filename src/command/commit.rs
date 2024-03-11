@@ -40,10 +40,16 @@ impl CommitCMD {
             .iter()
             .map(|file| {
                 // check if the file is a directory
-                let data = std::fs::read_to_string(file).unwrap();
+                let file_name = file.0.as_ref().unwrap();
+                let file_mode = file.1.as_str();
+                let data = std::fs::read_to_string(file_name).unwrap();
                 let mut blob = Blob::new(data.to_owned());
                 db.store(&mut blob);
-                Entry::new(file.to_owned(), blob.oid.unwrap().to_owned())
+                Entry::new(
+                    file_name.to_owned(),
+                    blob.oid.unwrap().to_owned(),
+                    file_mode.to_owned(),
+                )
             })
             .collect::<Vec<Entry>>();
 

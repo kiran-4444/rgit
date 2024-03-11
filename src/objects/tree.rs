@@ -6,7 +6,7 @@ use super::{storable::Storable, Entry};
 
 #[derive(Debug)]
 pub struct Tree {
-    pub mode: String,
+    pub mode: Option<String>,
     pub oid: Option<String>,
     pub entries: Vec<Entry>,
 }
@@ -14,7 +14,7 @@ pub struct Tree {
 impl Tree {
     pub fn new(entries: Vec<Entry>) -> Self {
         Self {
-            mode: "100644".to_owned(),
+            mode: None,
             oid: None,
             entries,
         }
@@ -40,7 +40,7 @@ impl Storable for Tree {
             .map(|entry| {
                 let mut output: Vec<&[u8]> = Vec::new();
 
-                output.push(self.mode.as_bytes());
+                output.push(entry.mode.as_bytes());
                 output.push(&[b' ']);
 
                 let entry_name_bytes = entry.name.as_bytes();
