@@ -25,7 +25,8 @@ impl Lockfile {
                 return false;
             }
 
-            // If the lock file does not exist, we create it and hold the lock
+            // If the lock file does not exist, we create it and hold the lock.
+            // If the lock file already exists, we need to error out
             self.lock = Some(
                 OpenOptions::new()
                     .read(true)
