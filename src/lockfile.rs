@@ -22,6 +22,7 @@ impl Lockfile {
         if self.lock.is_none() {
             // If the lock file already exists, we return back false
             if self.lock_file_path.as_ref().unwrap().exists() {
+                println!("Lock file already exists");
                 return false;
             }
 
@@ -68,5 +69,57 @@ impl Lockfile {
 
         // We release the lock
         self.lock = None;
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::fs::File;
+
+    #[test]
+    fn update_head_should_succeed_if_lock_can_be_held() {
+        let mut lockfile = Lockfile::new(PathBuf::from("HEAD"));
+        assert_eq!(lockfile.hold_for_update(), true);
+        lockfile.write(b"test data");
+        lockfile.commit();
+
+        assert!(PathBuf::from("HEAD").exists());
+        assert!(PathBuf::from("HEAD.lock").exists() == false);
+
+        // clean up
+        std::fs::remove_file("HEAD").unwrap();
+    }
+
+    #[test]
+    fn update_head_should_fail_if_lock_cannot_be_held() {
+        let mut lockfile = Lockfile::new(PathBuf::from("HEAD"));
+
+        // Create a lock file
+        let _lock_file = File::create("HEAD.lock").unwrap();
+
+        assert_eq!(lockfile.hold_for_update(), false);
+
+        // Clean up
+        // this may not delete the file immediately, but it will be deleted eventually
+        std::fs::remove_file("HEAD.lock").unwrap();
+    }
+
+    #[test]
+    fn write_should_fail_if_lock_is_not_held() {
+        let mut lockfile = Lockfile::new(PathBuf::from("HEAD"));
+        let data = b"test data";
+
+        assert_eq!(lockfile.hold_for_update(), true);
+        lockfile.write(data);
+        assert_eq!(std::fs::read_to_string("HEAD.lock").unwrap(), "test data");
+
+        // lock is still held, so this should fail
+        let mut lockfile = Lockfile::new(PathBuf::from("HEAD"));
+        assert!(PathBuf::from("HEAD.lock").exists() == true);
+        assert_eq!(lockfile.hold_for_update(), false);
+
+        // clean up
+        std::fs::remove_file("HEAD.lock").unwrap();
     }
 }
