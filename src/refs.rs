@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use crate::lockfile::Lockfile;
+
 #[derive(Debug, Clone)]
 pub struct Refs {
     pub git_path: std::path::PathBuf,
@@ -11,8 +13,19 @@ impl Refs {
     }
 
     pub fn update_head(&self, oid: &str) {
-        let head = self.git_path.join("HEAD");
-        std::fs::write(head, oid).unwrap();
+        let mut lockfile = Lockfile::new(self.git_path.join("HEAD"));
+
+        match lockfile.hold_for_update() {
+            false => {
+                eprintln!("fatal: Unable to create lock on HEAD");
+                std::process::exit(1);
+            }
+            true => (),
+        }
+
+        lockfile.write(oid.as_bytes());
+        lockfile.write(b"\n");
+        lockfile.commit();
     }
 
     pub fn head_path(&self) -> std::path::PathBuf {

@@ -1,5 +1,6 @@
 mod command;
 mod database;
+mod lockfile;
 mod objects;
 mod refs;
 mod workspace;
