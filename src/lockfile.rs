@@ -1,3 +1,4 @@
+use std::fs::OpenOptions;
 use std::path::PathBuf;
 
 #[derive(Debug)]
@@ -25,7 +26,15 @@ impl Lockfile {
             }
 
             // If the lock file does not exist, we create it and hold the lock
-            self.lock = Some(std::fs::File::create(self.lock_file_path.as_ref().unwrap()).unwrap());
+            self.lock = Some(
+                OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .create(true)
+                    .create_new(true)
+                    .open(self.lock_file_path.as_ref().unwrap())
+                    .unwrap(),
+            );
             true
         } else {
             if !self.lock_file_path.as_ref().unwrap().exists() {
