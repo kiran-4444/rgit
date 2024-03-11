@@ -122,4 +122,20 @@ mod test {
         // clean up
         std::fs::remove_file("HEAD.lock").unwrap();
     }
+
+    #[test]
+    fn write_and_commit_should_pass() {
+        let mut lockfile = Lockfile::new(PathBuf::from("HEAD"));
+        let data = b"test data";
+
+        assert_eq!(lockfile.hold_for_update(), true);
+        lockfile.write(data);
+        lockfile.commit();
+
+        assert_eq!(std::fs::read_to_string("HEAD").unwrap(), "test data");
+        assert!(PathBuf::from("HEAD.lock").exists() == false);
+
+        // clean up
+        std::fs::remove_file("HEAD").unwrap();
+    }
 }
