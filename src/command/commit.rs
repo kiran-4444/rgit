@@ -49,22 +49,17 @@ impl CommitCMD {
 
         let mut tree = Tree::new(entries);
         db.store(&mut tree);
-        println!("{:?}", tree.oid);
 
         let (name, email) = self.get_config();
         let author = Author::new(&name, &email);
-        println!("{:?}", author);
 
         let parent = refs.read_head();
         let message = self.message.clone();
         let mut commit = Commit::new(parent.to_owned(), tree.oid.unwrap(), author, &message);
         db.store(&mut commit);
-        println!("{:?}", commit);
 
         let commit_oid = commit.oid.clone().unwrap();
         refs.update_head(&commit_oid);
-
-        dbg!(&parent);
 
         match parent {
             Some(_) => {
