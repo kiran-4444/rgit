@@ -55,6 +55,4 @@ fn test_commit_without_root_should_fail() {
         String::from_utf8_lossy(&output.stderr),
         "fatal: not a git repository (or any of the parent directories): .rgit\n"
     );
-
-    std::fs::remove_dir_all("test_commit").unwrap();
 }
