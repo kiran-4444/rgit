@@ -33,10 +33,6 @@ impl CommitCMD {
         let object_store = git_path.join("objects");
         let db = database::Database::new(object_store);
         let files = list_files().unwrap();
-        let files = files
-            .iter()
-            .filter(|file| PathBuf::from(file).is_file())
-            .collect::<Vec<_>>();
         let entries = files
             .iter()
             .map(|file| {
@@ -44,7 +40,7 @@ impl CommitCMD {
                 let data = std::fs::read_to_string(file).unwrap();
                 let mut blob = Blob::new(data.to_owned());
                 db.store(&mut blob);
-                Entry::new(file.to_string().to_owned(), blob.oid.unwrap().to_owned())
+                Entry::new(file.to_owned(), blob.oid.unwrap().to_owned())
             })
             .collect::<Vec<Entry>>();
 
