@@ -30,10 +30,15 @@ impl<'a> Database {
         let object_path = PathBuf::from(&self.object_store).join(&name[0..2]);
         std::fs::create_dir_all(&object_path).unwrap();
         let object_name = object_path.join(&name[2..]);
-        // generate a temporary file and write the content to it, then rename it to the final nam
+
+        // if the object already exists, we don't need to write it again
+        if object_name.exists() {
+            return;
+        }
+
+        // generate a temporary file and write the content to it, then rename it to the final name
         let temp_file_path =
             PathBuf::from(object_path).join(format!("{}.tmp", object_name.display()));
-
         let temp_file = std::fs::File::create(&temp_file_path).unwrap();
         let compressed_content = compress_content(content);
         let mut buffer = std::io::BufWriter::new(&temp_file);
