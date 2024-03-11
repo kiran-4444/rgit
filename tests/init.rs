@@ -28,5 +28,5 @@ fn test_init_with_args() {
     assert!(std::path::Path::new("sub_path/.rgit/objects").exists());
 
     // remove the .rgit directory
-    std::fs::remove_dir_all("sub_path/.rgit").unwrap();
+    std::fs::remove_dir_all("sub_path/").unwrap();
 }

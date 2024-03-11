@@ -18,6 +18,11 @@ impl InitCMD {
     }
 }
 
+pub fn check_if_git_dir_exists(path: &Path) -> bool {
+    let creation_path = construct_git_path(path);
+    creation_path.exists()
+}
+
 pub fn construct_git_path(path: &Path) -> PathBuf {
     let curr_dir = env::current_dir().expect("Failed to get current directory");
 
@@ -56,24 +61,6 @@ pub fn initialize_git_dir(path: &Path) {
 
     // Create the objects directory
     fs::create_dir_all(&creation_path.join("objects"))
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
-
-    // Create the refs directory
-    fs::create_dir_all(&creation_path.join("refs"))
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
-
-    // Create the refs/heads directory
-    fs::create_dir_all(&creation_path.join("refs").join("heads"))
         .map_err(|err| {
             let console_output = format!("Failed to initialize git: {}", err);
             eprintln!("{}", console_output.red().bold());
