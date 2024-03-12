@@ -63,7 +63,8 @@ impl Workspace {
     pub fn list_files(&self, dir_path: PathBuf) -> Vec<WorkSpaceEntry> {
         let mut vec = Vec::new();
         self._list_files(&mut vec, &dir_path);
-        vec.iter()
+        let mut entries = vec
+            .iter()
             .map(|path| WorkSpaceEntry {
                 name: path
                     .strip_prefix(std::env::current_dir().unwrap())
@@ -72,6 +73,16 @@ impl Workspace {
 
                 mode: self.get_mode(&path),
             })
-            .collect()
+            .collect::<Vec<WorkSpaceEntry>>();
+
+        entries.sort_by(|a, b| {
+            a.name
+                .to_owned()
+                .to_str()
+                .unwrap()
+                .to_owned()
+                .cmp(&b.name.to_owned().to_str().unwrap().to_owned())
+        });
+        entries
     }
 }
