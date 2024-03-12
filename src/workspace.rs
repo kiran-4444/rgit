@@ -31,11 +31,12 @@ impl Workspace {
         let files: Vec<(Option<String>, String)> = entries
             .filter_map(|entry| {
                 entry.ok().and_then(|e| {
-                    // print file mode
-                    let file_mode = format!("{:o}", e.metadata().unwrap().permissions().mode());
+                    let is_executable = e.metadata().unwrap().permissions().mode() & 0o111 != 0;
+                    // git uses 100644 for normal files and 100755 for executable files
+                    let file_mode = if is_executable { "100755" } else { "100644" };
                     let file_name = e.file_name().to_string_lossy().into_owned();
                     if !ignore.contains(&file_name) {
-                        Some((Some(file_name), file_mode))
+                        Some((Some(file_name), file_mode.to_owned()))
                     } else {
                         None
                     }
