@@ -26,7 +26,7 @@ impl Entry {
             .map(|x| x.to_str().unwrap().to_string())
             .collect::<Vec<String>>();
 
-        parents.reverse();
+        // parents.reverse();
         parents
     }
 }

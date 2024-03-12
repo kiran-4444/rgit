@@ -1,5 +1,6 @@
 use std::{collections::HashMap, iter::zip};
 
+use clap::builder::Str;
 use itertools::Itertools;
 
 use super::{storable::Storable, Entry};
@@ -37,7 +38,6 @@ impl Tree {
             );
             root.add_entry(entry.parent_directories(), entry, &mut hash_entries);
         }
-
         dbg!(hash_entries.clone());
         root
     }
@@ -50,7 +50,7 @@ impl Tree {
     ) {
         // println!();
         // println!("=====================");
-        // dbg!(parents.clone());
+        dbg!(parents.clone());
         // dbg!(entry.clone());
         // dbg!(tree_entries.clone());
         if parents.is_empty() {
@@ -67,14 +67,13 @@ impl Tree {
                     tree.add_entry(parents[1..].to_vec(), entry.clone(), tree_entries);
                 }
                 _ => {
-                    // let mut tree_entries = HashMap::new();
-                    // println!("Inserting key: {}", parents[0]);
-                    // println!(
-                    //     "Inserting value: {:?}",
-                    //     EntryOrTree::Tree(Tree::new(tree_entries.clone()))
+                    // tree_entries.insert(
+                    //     parents[0].clone(),
+                    //     EntryOrTree::Tree(Tree::new(HashMap::new())),
                     // );
 
-                    tree_entries.insert(
+                    let mut tree_entries_new: HashMap<String, EntryOrTree> = HashMap::new();
+                    tree_entries_new.insert(
                         parents[0].clone(),
                         EntryOrTree::Tree(Tree::new(HashMap::new())),
                     );
@@ -82,7 +81,8 @@ impl Tree {
                     // println!("After insert: {:?}", tree_entries.clone());
                     println!("=====================");
                     let tree = Tree::new(HashMap::new());
-                    tree.add_entry(parents[1..].to_vec(), entry.clone(), tree_entries);
+                    tree.add_entry(parents[1..].to_vec(), entry.clone(), &mut tree_entries_new);
+                    tree_entries.insert(parents[0].clone(), EntryOrTree::Tree(tree));
                 }
             }
         }
