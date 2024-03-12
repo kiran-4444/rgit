@@ -30,8 +30,8 @@ impl Tree {
 
     pub fn build(entries: Vec<Entry>) -> Vec<(Vec<String>, Entry)> {
         // sort the entries by their name, that's how git does it
-        let mut entries_vec: Vec<Entry> = entries.clone();
-        entries_vec.sort_by(|a, b| a.name.cmp(&b.name));
+        let entries_vec: Vec<Entry> = entries.clone();
+        // entries_vec.sort_by(|a, b| a.name.cmp(&b.name));
 
         entries_vec
             .iter()
