@@ -35,25 +35,32 @@ impl CommitCMD {
         let object_store = git_path.join("objects");
         let db = database::Database::new(object_store);
         let workspace = workspace::Workspace::new(PathBuf::from("."));
-        let files = workspace.list_files().unwrap();
-        let entries = files
+        let workspace_entries = workspace.list_files(std::env::current_dir().unwrap());
+        let entries = workspace_entries
             .iter()
-            .map(|file| {
+            .filter(|entry| entry.name.is_file())
+            .map(|entry| {
                 // check if the file is a directory
-                let file_name = file.0.as_ref().unwrap();
-                let file_mode = file.1.as_str();
-                let data = std::fs::read_to_string(file_name).unwrap();
+                let entry_name = entry.name.to_owned();
+                let entry_mode = entry.mode.to_owned();
+                let data = std::fs::read_to_string(&entry_name).unwrap();
                 let mut blob = Blob::new(data.to_owned());
                 db.store(&mut blob);
                 Entry::new(
-                    file_name.to_owned(),
+                    entry_name.to_owned().to_str().unwrap().to_owned(),
                     blob.oid.unwrap().to_owned(),
-                    file_mode.to_owned(),
+                    entry_mode.to_owned(),
+                    entry_name.to_owned(),
                 )
             })
             .collect::<Vec<Entry>>();
 
         let mut tree = Tree::new(entries);
+        let root = Tree::build(tree.entries.clone());
+        for entry in root {
+            println!("{:?}", entry);
+        }
+
         db.store(&mut tree);
 
         let (name, email) = self.get_config();

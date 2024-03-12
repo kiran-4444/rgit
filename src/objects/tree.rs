@@ -1,4 +1,4 @@
-use std::iter::zip;
+use std::{collections::HashMap, iter::zip};
 
 use itertools::Itertools;
 
@@ -13,10 +13,43 @@ pub struct Tree {
 
 impl Tree {
     pub fn new(entries: Vec<Entry>) -> Self {
-        Self {
-            mode: None,
-            oid: None,
-            entries,
+        if entries.is_empty() {
+            Self {
+                mode: None,
+                oid: None,
+                entries: Vec::new(),
+            }
+        } else {
+            Self {
+                mode: None,
+                oid: None,
+                entries,
+            }
+        }
+    }
+
+    pub fn build(entries: Vec<Entry>) -> Vec<(Vec<String>, Entry)> {
+        // sort the entries by their name, that's how git does it
+        let mut entries_vec: Vec<Entry> = entries.clone();
+        entries_vec.sort_by(|a, b| a.name.cmp(&b.name));
+
+        entries_vec
+            .iter()
+            .map(|entry| (entry.parent_directories(), entry.clone()))
+            .collect()
+    }
+
+    pub fn _add_entry(
+        parents: Vec<String>,
+        entry: Entry,
+        mut tree_entries: HashMap<String, Entry>,
+    ) {
+        if parents.is_empty() {
+            tree_entries.insert(entry.name.clone(), entry);
+        } else {
+            tree_entries.insert(parents[0].clone(), entry.clone());
+            let _tree = Tree::new(tree_entries.values().cloned().collect());
+            Tree::_add_entry(parents[1..].to_vec(), entry, tree_entries);
         }
     }
 }
