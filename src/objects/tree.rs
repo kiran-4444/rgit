@@ -4,52 +4,73 @@ use itertools::Itertools;
 
 use super::{storable::Storable, Entry};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EntryOrTree {
+    Entry(Entry),
+    Tree(Tree),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tree {
     pub mode: Option<String>,
     pub oid: Option<String>,
-    pub entries: Vec<Entry>,
+    pub entries: HashMap<String, EntryOrTree>,
 }
 
 impl Tree {
-    pub fn new(entries: Vec<Entry>) -> Self {
-        if entries.is_empty() {
-            Self {
-                mode: None,
-                oid: None,
-                entries: Vec::new(),
-            }
-        } else {
-            Self {
-                mode: None,
-                oid: None,
-                entries,
-            }
+    pub fn new(entries: HashMap<String, EntryOrTree>) -> Self {
+        Self {
+            mode: None,
+            oid: None,
+            entries,
         }
     }
 
-    pub fn build(entries: Vec<Entry>) -> Vec<(Vec<String>, Entry)> {
-        // sort the entries by their name, that's how git does it
-        let entries_vec: Vec<Entry> = entries.clone();
-        // entries_vec.sort_by(|a, b| a.name.cmp(&b.name));
-
-        entries_vec
-            .iter()
-            .map(|entry| (entry.parent_directories(), entry.clone()))
-            .collect()
+    pub fn build(entries: Vec<Entry>) -> Tree {
+        let root = Tree::new(HashMap::new());
+        let mut hash_entries = root.entries.clone();
+        for entry in entries {
+            println!(
+                "Starting to add entry
+            {:?}",
+                entry.clone()
+            );
+            root.add_entry(entry.parent_directories(), entry, &mut hash_entries);
+        }
+        root
     }
 
-    pub fn _add_entry(
+    pub fn add_entry(
+        &self,
         parents: Vec<String>,
         entry: Entry,
-        mut tree_entries: HashMap<String, Entry>,
+        tree_entries: &mut HashMap<String, EntryOrTree>,
     ) {
+        println!();
+        println!("=====================");
+        dbg!(parents.clone());
+        dbg!(entry.clone());
+        dbg!(tree_entries.clone());
         if parents.is_empty() {
-            tree_entries.insert(entry.name.clone(), entry);
+            tree_entries.insert(entry.name.clone(), EntryOrTree::Entry(entry));
+            println!("After insert: {:?}", tree_entries.clone());
         } else {
-            tree_entries.insert(parents[0].clone(), entry.clone());
-            let _tree = Tree::new(tree_entries.values().cloned().collect());
-            Tree::_add_entry(parents[1..].to_vec(), entry, tree_entries);
+            let tree_entry_copy = tree_entries.clone();
+            let result = tree_entry_copy.get(&entry.name.clone());
+            dbg!(result);
+            match result {
+                Some(EntryOrTree::Tree(tree)) => {
+                    tree.add_entry(parents[1..].to_vec(), entry.clone(), tree_entries);
+                }
+                _ => {
+                    // let mut tree_entries = HashMap::new();
+                    // println!("Inserting key: {}", parents[0]);
+                    // println!("Inserting value: {:?}", EntryOrTree::Entry(entry.clone()));
+                    tree_entries.insert(parents[0].clone(), EntryOrTree::Entry(entry.clone()));
+                    let tree = Tree::new(HashMap::new());
+                    tree.add_entry(parents[1..].to_vec(), entry.clone(), tree_entries);
+                }
+            }
         }
     }
 }
@@ -64,7 +85,7 @@ impl Storable for Tree {
     }
 
     fn data(&self) -> String {
-        let mut entries_vec: Vec<Entry> = self.entries.clone();
+        let mut entries_vec: Vec<Entry> = Vec::new();
         entries_vec.sort_by(|a, b| a.name.cmp(&b.name));
 
         let mut hex_oids: Vec<Vec<u8>> = Vec::new();

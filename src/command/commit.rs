@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{env, path::Path};
 
@@ -55,11 +56,9 @@ impl CommitCMD {
             })
             .collect::<Vec<Entry>>();
 
-        let mut tree = Tree::new(entries);
-        let root = Tree::build(tree.entries.clone());
-        for entry in root {
-            println!("{:?}", entry);
-        }
+        let mut tree = Tree::new(HashMap::new());
+        let root = Tree::build(entries.clone());
+        dbg!(root.clone());
 
         db.store(&mut tree);
 

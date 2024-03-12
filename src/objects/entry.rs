@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, PartialEq, PartialOrd, Clone)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Eq, Hash, Ord)]
 pub struct Entry {
     pub name: String,
     pub oid: String,
