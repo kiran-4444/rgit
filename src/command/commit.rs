@@ -47,7 +47,7 @@ impl CommitCMD {
                 let mut blob = Blob::new(data.to_owned());
                 db.store(&mut blob);
                 Entry::new(
-                    entry_name.to_owned().to_str().unwrap().to_owned(),
+                    entry_name.file_name().unwrap().to_str().unwrap().to_owned(),
                     blob.oid.unwrap().to_owned(),
                     entry_mode.to_owned(),
                     entry_name.to_owned(),

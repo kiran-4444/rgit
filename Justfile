@@ -8,7 +8,7 @@ run arg:
     cargo run --bin r_git {{arg}}
 
 build:
-    cargo build --release
+    cargo build
 
 test:
     cargo test -- --test-threads=1

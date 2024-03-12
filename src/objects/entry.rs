@@ -19,7 +19,7 @@ impl Entry {
     }
 
     pub fn parent_directories(&self) -> Vec<String> {
-        let mut parents = Path::new(&self.name)
+        let mut parents = Path::new(&self.path)
             .parent()
             .unwrap()
             .iter()
