@@ -53,18 +53,26 @@ impl CommitCMD {
             })
             .collect::<Vec<Entry>>();
 
-        let mut tree = Tree::new();
-        let root = Tree::build(entries.clone());
+        let mut root = Tree::build(entries.clone());
         dbg!(root.clone());
 
-        db.store(&mut tree);
+        root.entries
+            .iter_mut()
+            .for_each(|(_key, value)| match value {
+                EntryOrTree::Tree(tree) => {
+                    db.store(tree);
+                }
+                _ => (),
+            });
+
+        db.store(&mut root);
 
         let (name, email) = self.get_config();
         let author = Author::new(&name, &email);
 
         let parent = refs.read_head();
         let message = self.message.clone();
-        let mut commit = Commit::new(parent.to_owned(), tree.oid.unwrap(), author, &message);
+        let mut commit = Commit::new(parent.to_owned(), root.oid.unwrap(), author, &message);
         db.store(&mut commit);
 
         let commit_oid = commit.oid.clone().unwrap();
