@@ -17,52 +17,33 @@ pub enum EntryOrTree {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tree {
     pub oid: Option<String>,
+    pub entries: BTreeMap<String, EntryOrTree>,
 }
 
 impl Tree {
     pub fn new() -> Self {
-        Self { oid: None }
+        Self {
+            oid: None,
+            entries: BTreeMap::new(),
+        }
     }
 
     pub fn build(entries: Vec<Entry>) -> Tree {
-        let root = Tree::new();
-        let mut hash_entries: BTreeMap<String, EntryOrTree> = BTreeMap::new();
+        let mut root = Tree::new();
         for entry in entries {
-            root.add_entry(
-                entry.parent_directories(),
-                EntryOrTree::Entry(entry),
-                &mut hash_entries,
-            );
+            root.add_entry(entry.parent_directories(), EntryOrTree::Entry(entry));
         }
 
-        // for (key, value) in hash_entries.iter() {
-        //     dbg!(key);
-        //     dbg!(value);
-
-        //     match value {
-        //         EntryOrTree::Entry(entry) => {
-        //             dbg!(entry);
-        //         }
-        //         EntryOrTree::Tree(tree) => {
-        //             dbg!(tree);
-        //         }
-        //     }
-        // }
-        dbg!(hash_entries.clone());
+        dbg!(root.entries.clone());
         root
     }
 
-    pub fn add_entry(
-        &self,
-        parents: Vec<String>,
-        entry: EntryOrTree,
-        tree_entries: &mut BTreeMap<String, EntryOrTree>,
-    ) {
+    pub fn add_entry(&mut self, parents: Vec<String>, entry: EntryOrTree) {
         if parents.is_empty() {
             match entry {
                 EntryOrTree::Entry(entry) => {
                     let basename = entry.name.split("/").last().unwrap().to_string();
-                    tree_entries.insert(basename, EntryOrTree::Entry(entry));
+                    self.entries.insert(basename, EntryOrTree::Entry(entry));
                 }
                 _ => {
                     panic!("Invalid entry type");
@@ -74,16 +55,17 @@ impl Tree {
                 .filter(|s| !s.is_empty())
                 .map(|s| s.to_string())
                 .collect();
-            let tree_entry_copy = tree_entries.clone();
-            let result = tree_entry_copy.get(parent_basename.last().unwrap().as_str());
+            let result = self
+                .entries
+                .get_mut(parent_basename.last().unwrap().as_str());
             match result {
                 Some(EntryOrTree::Tree(tree)) => {
-                    tree.add_entry(parents[1..].to_vec(), entry.clone(), tree_entries);
+                    tree.add_entry(parents[1..].to_vec(), entry.clone());
                 }
                 _ => {
-                    let tree = Tree::new();
-                    tree.add_entry(parents[1..].to_vec(), entry.clone(), tree_entries);
-                    tree_entries.insert(
+                    let mut tree = Tree::new();
+                    tree.add_entry(parents[1..].to_vec(), entry.clone());
+                    self.entries.insert(
                         parent_basename.last().unwrap().to_owned(),
                         EntryOrTree::Tree(tree),
                     );
