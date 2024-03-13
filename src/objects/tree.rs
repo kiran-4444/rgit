@@ -1,4 +1,8 @@
-use std::{collections::HashMap, iter::zip};
+use std::{
+    collections::{BTreeMap, HashMap},
+    iter::zip,
+    path::Path,
+};
 
 use itertools::Itertools;
 
@@ -22,15 +26,28 @@ impl Tree {
 
     pub fn build(entries: Vec<Entry>) -> Tree {
         let root = Tree::new();
-        let mut hash_entries: HashMap<String, EntryOrTree> = HashMap::new();
+        let mut hash_entries: BTreeMap<String, EntryOrTree> = BTreeMap::new();
         for entry in entries {
-            println!(
-                "Starting to add entry
-            {:?}",
-                entry.clone()
+            root.add_entry(
+                entry.parent_directories(),
+                EntryOrTree::Entry(entry),
+                &mut hash_entries,
             );
-            root.add_entry(entry.parent_directories(), entry, &mut hash_entries);
         }
+
+        // for (key, value) in hash_entries.iter() {
+        //     dbg!(key);
+        //     dbg!(value);
+
+        //     match value {
+        //         EntryOrTree::Entry(entry) => {
+        //             dbg!(entry);
+        //         }
+        //         EntryOrTree::Tree(tree) => {
+        //             dbg!(tree);
+        //         }
+        //     }
+        // }
         dbg!(hash_entries.clone());
         root
     }
@@ -38,35 +55,38 @@ impl Tree {
     pub fn add_entry(
         &self,
         parents: Vec<String>,
-        entry: Entry,
-        tree_entries: &mut HashMap<String, EntryOrTree>,
+        entry: EntryOrTree,
+        tree_entries: &mut BTreeMap<String, EntryOrTree>,
     ) {
-        // println!();
-        // println!("=====================");
-        dbg!(parents.clone());
-        // dbg!(entry.clone());
-        // dbg!(tree_entries.clone());
         if parents.is_empty() {
-            tree_entries.insert(entry.name.clone(), EntryOrTree::Entry(entry));
+            match entry {
+                EntryOrTree::Entry(entry) => {
+                    let basename = entry.name.split("/").last().unwrap().to_string();
+                    tree_entries.insert(basename, EntryOrTree::Entry(entry));
+                }
+                _ => {
+                    panic!("Invalid entry type");
+                }
+            }
         } else {
+            let parent_basename: Vec<String> = parents[0]
+                .split("/")
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect();
             let tree_entry_copy = tree_entries.clone();
-            let result = tree_entry_copy.get(&entry.name.clone());
-            dbg!(result.clone());
+            let result = tree_entry_copy.get(parent_basename.last().unwrap().as_str());
             match result {
                 Some(EntryOrTree::Tree(tree)) => {
-                    println!("Inside tree");
-                    tree_entries.insert(entry.name.clone(), EntryOrTree::Tree(tree.clone()));
                     tree.add_entry(parents[1..].to_vec(), entry.clone(), tree_entries);
                 }
                 _ => {
-                    let mut tree_entries_new: HashMap<String, EntryOrTree> = HashMap::new();
-                    tree_entries_new.insert(parents[0].clone(), EntryOrTree::Tree(Tree::new()));
-
-                    // println!("After insert: {:?}", tree_entries.clone());
-                    println!("=====================");
                     let tree = Tree::new();
-                    tree.add_entry(parents[1..].to_vec(), entry.clone(), &mut tree_entries_new);
-                    tree_entries.insert(parents[0].clone(), EntryOrTree::Tree(tree));
+                    tree.add_entry(parents[1..].to_vec(), entry.clone(), tree_entries);
+                    tree_entries.insert(
+                        parent_basename.last().unwrap().to_owned(),
+                        EntryOrTree::Tree(tree),
+                    );
                 }
             }
         }
