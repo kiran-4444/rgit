@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::{env, path::Path};
 
@@ -39,7 +38,6 @@ impl CommitCMD {
         let workspace_entries = workspace.list_files(std::env::current_dir().unwrap());
         let entries = workspace_entries
             .iter()
-            .filter(|entry| entry.name.is_file())
             .map(|entry| {
                 // check if the file is a directory
                 let entry_name = entry.name.to_owned();
@@ -48,10 +46,9 @@ impl CommitCMD {
                 let mut blob = Blob::new(data.to_owned());
                 db.store(&mut blob);
                 Entry::new(
-                    entry_name.file_name().unwrap().to_str().unwrap().to_owned(),
+                    entry_name.to_str().unwrap().to_owned(),
                     blob.oid.unwrap().to_owned(),
                     entry_mode.to_owned(),
-                    entry_name.to_owned(),
                 )
             })
             .collect::<Vec<Entry>>();

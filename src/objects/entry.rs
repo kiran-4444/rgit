@@ -1,31 +1,29 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone, Eq, Hash, Ord)]
 pub struct Entry {
     pub name: String,
     pub oid: String,
     pub mode: String,
-    pub path: PathBuf,
 }
 
 impl Entry {
-    pub fn new(name: String, oid: String, mode: String, path: PathBuf) -> Self {
-        Self {
-            name,
-            oid,
-            mode,
-            path,
-        }
+    pub fn new(name: String, oid: String, mode: String) -> Self {
+        Self { name, oid, mode }
     }
 
     pub fn parent_directories(&self) -> Vec<String> {
-        let mut parents = Path::new(&self.path)
-            .parent()
-            .unwrap()
-            .iter()
-            .map(|x| x.to_str().unwrap().to_string())
-            .collect::<Vec<String>>();
-
+        let components = Path::new(&self.name)
+            .components()
+            .map(|c| c.as_os_str().to_str().unwrap())
+            .collect::<Vec<_>>();
+        let mut parents = Vec::new();
+        let mut current_path = String::new();
+        for part in components.iter().take(components.len() - 1) {
+            current_path.push_str(part);
+            parents.push(current_path.clone());
+            current_path.push('/');
+        }
         // parents.reverse();
         parents
     }
