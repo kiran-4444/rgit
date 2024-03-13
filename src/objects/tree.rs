@@ -29,8 +29,6 @@ impl Tree {
         for entry in entries {
             root.add_entry(entry.parent_directories(), EntryOrTree::Entry(entry));
         }
-
-        dbg!(root.entries.clone());
         root
     }
 
