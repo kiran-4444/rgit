@@ -1,6 +1,5 @@
 use std::{collections::HashMap, iter::zip};
 
-use clap::builder::Str;
 use itertools::Itertools;
 
 use super::{storable::Storable, Entry};
@@ -13,23 +12,17 @@ pub enum EntryOrTree {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Tree {
-    pub mode: Option<String>,
     pub oid: Option<String>,
-    pub entries: HashMap<String, EntryOrTree>,
 }
 
 impl Tree {
-    pub fn new(entries: HashMap<String, EntryOrTree>) -> Self {
-        Self {
-            mode: None,
-            oid: None,
-            entries,
-        }
+    pub fn new() -> Self {
+        Self { oid: None }
     }
 
     pub fn build(entries: Vec<Entry>) -> Tree {
-        let root = Tree::new(HashMap::new());
-        let mut hash_entries = root.entries.clone();
+        let root = Tree::new();
+        let mut hash_entries: HashMap<String, EntryOrTree> = HashMap::new();
         for entry in entries {
             println!(
                 "Starting to add entry
@@ -55,7 +48,6 @@ impl Tree {
         // dbg!(tree_entries.clone());
         if parents.is_empty() {
             tree_entries.insert(entry.name.clone(), EntryOrTree::Entry(entry));
-            // println!("After insert: {:?}", tree_entries.clone());
         } else {
             let tree_entry_copy = tree_entries.clone();
             let result = tree_entry_copy.get(&entry.name.clone());
@@ -67,20 +59,12 @@ impl Tree {
                     tree.add_entry(parents[1..].to_vec(), entry.clone(), tree_entries);
                 }
                 _ => {
-                    // tree_entries.insert(
-                    //     parents[0].clone(),
-                    //     EntryOrTree::Tree(Tree::new(HashMap::new())),
-                    // );
-
                     let mut tree_entries_new: HashMap<String, EntryOrTree> = HashMap::new();
-                    tree_entries_new.insert(
-                        parents[0].clone(),
-                        EntryOrTree::Tree(Tree::new(HashMap::new())),
-                    );
+                    tree_entries_new.insert(parents[0].clone(), EntryOrTree::Tree(Tree::new()));
 
                     // println!("After insert: {:?}", tree_entries.clone());
                     println!("=====================");
-                    let tree = Tree::new(HashMap::new());
+                    let tree = Tree::new();
                     tree.add_entry(parents[1..].to_vec(), entry.clone(), &mut tree_entries_new);
                     tree_entries.insert(parents[0].clone(), EntryOrTree::Tree(tree));
                 }

@@ -56,7 +56,7 @@ impl CommitCMD {
             })
             .collect::<Vec<Entry>>();
 
-        let mut tree = Tree::new(HashMap::new());
+        let mut tree = Tree::new();
         let root = Tree::build(entries.clone());
         dbg!(root.clone());
 
