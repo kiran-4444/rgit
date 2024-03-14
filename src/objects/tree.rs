@@ -50,7 +50,12 @@ impl Tree {
         if parents.is_empty() {
             match entry {
                 EntryOrTree::Entry(entry) => {
-                    let basename = entry.name.split("/").last().unwrap().to_string();
+                    let basename = entry
+                        .name
+                        .split("/")
+                        .last()
+                        .expect("Failed to split path to get basename")
+                        .to_string();
                     self.entries.insert(basename, EntryOrTree::Entry(entry));
                 }
                 _ => {
@@ -63,9 +68,12 @@ impl Tree {
                 .filter(|s| !s.is_empty())
                 .map(|s| s.to_string())
                 .collect();
-            let result = self
-                .entries
-                .get_mut(parent_basename.last().unwrap().as_str());
+            let result = self.entries.get_mut(
+                parent_basename
+                    .last()
+                    .expect("failed to get parent basename")
+                    .as_str(),
+            );
             match result {
                 Some(EntryOrTree::Tree(tree)) => {
                     tree.add_entry(parents[1..].to_vec(), entry.clone());
@@ -74,7 +82,10 @@ impl Tree {
                     let mut tree = Tree::new();
                     tree.add_entry(parents[1..].to_vec(), entry.clone());
                     self.entries.insert(
-                        parent_basename.last().unwrap().to_owned(),
+                        parent_basename
+                            .last()
+                            .expect("failed to get parent basename")
+                            .to_owned(),
                         EntryOrTree::Tree(tree),
                     );
                 }
@@ -126,8 +137,8 @@ impl Storable for Tree {
                     let null_byte_array = &[b'\x00'];
                     output.push(null_byte_array);
 
-                    let decoded =
-                        hex::decode(&tree.oid.as_ref().unwrap()).expect("Failed to decode oid");
+                    let decoded = hex::decode(&tree.oid.as_ref().expect("failed to get tree oid"))
+                        .expect("Failed to decode oid");
                     hex_oids.push(decoded.clone());
                     output
                 }

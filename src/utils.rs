@@ -12,6 +12,8 @@ pub fn hash_content(content: &str) -> String {
 
 pub fn compress_content(content: &str) -> Vec<u8> {
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(content.as_bytes()).unwrap();
+    encoder
+        .write_all(content.as_bytes())
+        .expect("Failed to compress content");
     encoder.finish().unwrap()
 }

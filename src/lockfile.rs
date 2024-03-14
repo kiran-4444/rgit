@@ -21,7 +21,12 @@ impl Lockfile {
     pub fn hold_for_update(&mut self) -> bool {
         if self.lock.is_none() {
             // If the lock file already exists, we return back false
-            if self.lock_file_path.as_ref().unwrap().exists() {
+            if self
+                .lock_file_path
+                .as_ref()
+                .expect("failed to get lock_file_path ref")
+                .exists()
+            {
                 println!("Lock file already exists");
                 return false;
             }
@@ -35,11 +40,16 @@ impl Lockfile {
                     .create(true)
                     .create_new(true)
                     .open(self.lock_file_path.as_ref().unwrap())
-                    .unwrap(),
+                    .expect("Failed to open lock file"),
             );
             true
         } else {
-            if !self.lock_file_path.as_ref().unwrap().exists() {
+            if !self
+                .lock_file_path
+                .as_ref()
+                .expect("failed to get lock_file_path ref")
+                .exists()
+            {
                 panic!("Lockfile is missing, but lock is held");
             }
 
@@ -52,7 +62,11 @@ impl Lockfile {
         if self.lock.is_none() {
             panic!("Lock is not held");
         }
-        std::io::Write::write_all(&mut self.lock.as_ref().unwrap(), data).unwrap();
+        std::io::Write::write_all(
+            &mut self.lock.as_ref().expect("failed to get lock ref"),
+            data,
+        )
+        .unwrap();
     }
 
     pub fn commit(&mut self) {
@@ -62,10 +76,12 @@ impl Lockfile {
 
         // We rename the lock file to the file path
         std::fs::rename(
-            self.lock_file_path.as_ref().unwrap(),
+            self.lock_file_path
+                .as_ref()
+                .expect("failed to get lock_file_path ref"),
             self.file_path.as_path(),
         )
-        .unwrap();
+        .expect("failed to rename lock file to file path");
 
         // We release the lock
         self.lock = None;
@@ -88,7 +104,7 @@ mod test {
         assert!(PathBuf::from("HEAD.lock").exists() == false);
 
         // clean up
-        std::fs::remove_file("HEAD").unwrap();
+        std::fs::remove_file("HEAD").expect("failed to remove HEAD");
     }
 
     #[test]
@@ -96,13 +112,13 @@ mod test {
         let mut lockfile = Lockfile::new(PathBuf::from("HEAD"));
 
         // Create a lock file
-        let _lock_file = File::create("HEAD.lock").unwrap();
+        let _lock_file = File::create("HEAD.lock").expect("failed to create lock file");
 
         assert_eq!(lockfile.hold_for_update(), false);
 
         // Clean up
         // this may not delete the file immediately, but it will be deleted eventually
-        std::fs::remove_file("HEAD.lock").unwrap();
+        std::fs::remove_file("HEAD.lock").expect("failed to remove HEAD.lock");
     }
 
     #[test]
@@ -112,7 +128,10 @@ mod test {
 
         assert_eq!(lockfile.hold_for_update(), true);
         lockfile.write(data);
-        assert_eq!(std::fs::read_to_string("HEAD.lock").unwrap(), "test data");
+        assert_eq!(
+            std::fs::read_to_string("HEAD.lock").expect("failed to read lock file"),
+            "test data"
+        );
 
         // lock is still held, so this should fail
         let mut lockfile = Lockfile::new(PathBuf::from("HEAD"));
@@ -120,7 +139,7 @@ mod test {
         assert_eq!(lockfile.hold_for_update(), false);
 
         // clean up
-        std::fs::remove_file("HEAD.lock").unwrap();
+        std::fs::remove_file("HEAD.lock").expect("failed to remove HEAD.lock");
     }
 
     #[test]
@@ -132,10 +151,13 @@ mod test {
         lockfile.write(data);
         lockfile.commit();
 
-        assert_eq!(std::fs::read_to_string("HEAD").unwrap(), "test data");
+        assert_eq!(
+            std::fs::read_to_string("HEAD").expect("failed to read lock file"),
+            "test data"
+        );
         assert!(PathBuf::from("HEAD.lock").exists() == false);
 
         // clean up
-        std::fs::remove_file("HEAD").unwrap();
+        std::fs::remove_file("HEAD").expect("failed to remove HEAD");
     }
 }

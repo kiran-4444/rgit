@@ -45,6 +45,7 @@ impl<'a> Database {
         buffer
             .write_all(&compressed_content)
             .expect("Failed to write to temp file");
-        std::fs::rename(&temp_file_path, &object_name).unwrap();
+        std::fs::rename(&temp_file_path, &object_name)
+            .expect("failed to rename the temp file to object name");
     }
 }

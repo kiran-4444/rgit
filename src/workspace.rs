@@ -33,14 +33,25 @@ impl Workspace {
     }
 
     fn get_mode(&self, file_path: &PathBuf) -> String {
-        let is_executable = file_path.metadata().unwrap().permissions().mode() & 0o111 != 0;
+        let is_executable = file_path
+            .metadata()
+            .expect("failed to read file metadata")
+            .permissions()
+            .mode()
+            & 0o111
+            != 0;
         // git uses 100644 for normal files and 100755 for executable files
         let file_mode = if is_executable { "100755" } else { "100644" };
         file_mode.to_string()
     }
 
     fn get_file_name(&self, entry: &Path) -> String {
-        entry.file_name().unwrap().to_str().unwrap().to_string()
+        entry
+            .file_name()
+            .expect("failed to get file name")
+            .to_str()
+            .expect("failed to convert file name to str")
+            .to_string()
     }
 
     fn _list_files(&self, vec: &mut Vec<PathBuf>, path: &Path) {
@@ -50,8 +61,11 @@ impl Workspace {
         if metadata(&path).unwrap().is_dir() {
             let paths = fs::read_dir(&path).unwrap();
             for path_result in paths {
-                let full_path = path_result.unwrap().path();
-                if metadata(&full_path).unwrap().is_dir() {
+                let full_path = path_result.expect("failed to get path").path();
+                if metadata(&full_path)
+                    .expect("failed to get metadata")
+                    .is_dir()
+                {
                     self._list_files(vec, &full_path);
                 } else {
                     vec.push(full_path);
@@ -67,8 +81,8 @@ impl Workspace {
             .iter()
             .map(|path| WorkSpaceEntry {
                 name: path
-                    .strip_prefix(std::env::current_dir().unwrap())
-                    .unwrap()
+                    .strip_prefix(std::env::current_dir().expect("failed to get current dir"))
+                    .expect("failed to strip prefix")
                     .to_owned(),
 
                 mode: self.get_mode(&path),
@@ -79,9 +93,15 @@ impl Workspace {
             a.name
                 .to_owned()
                 .to_str()
-                .unwrap()
+                .expect("failed to convert path to str")
                 .to_owned()
-                .cmp(&b.name.to_owned().to_str().unwrap().to_owned())
+                .cmp(
+                    &b.name
+                        .to_owned()
+                        .to_str()
+                        .expect("failed to convert path to str")
+                        .to_owned(),
+                )
         });
         entries
     }

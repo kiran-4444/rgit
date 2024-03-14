@@ -34,7 +34,7 @@ impl Refs {
 
     pub fn read_head(&self) -> Option<String> {
         match self.head_path().exists() {
-            true => Some(std::fs::read_to_string(self.head_path()).unwrap()),
+            true => Some(std::fs::read_to_string(self.head_path()).expect("Failed to read HEAD")),
             false => None,
         }
     }
