@@ -39,7 +39,11 @@ impl Lockfile {
                     .write(true)
                     .create(true)
                     .create_new(true)
-                    .open(self.lock_file_path.as_ref().unwrap())
+                    .open(
+                        self.lock_file_path
+                            .as_ref()
+                            .expect("failed to get lock_file_path ref"),
+                    )
                     .expect("Failed to open lock file"),
             );
             true
@@ -66,7 +70,7 @@ impl Lockfile {
             &mut self.lock.as_ref().expect("failed to get lock ref"),
             data,
         )
-        .unwrap();
+        .expect("failed to write to lock file");
     }
 
     pub fn commit(&mut self) {

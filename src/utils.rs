@@ -15,5 +15,5 @@ pub fn compress_content(content: &str) -> Vec<u8> {
     encoder
         .write_all(content.as_bytes())
         .expect("Failed to compress content");
-    encoder.finish().unwrap()
+    encoder.finish().expect("Failed to finish compression")
 }

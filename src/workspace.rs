@@ -58,8 +58,8 @@ impl Workspace {
         if self.ignored_files().contains(&self.get_file_name(&path)) {
             return;
         }
-        if metadata(&path).unwrap().is_dir() {
-            let paths = fs::read_dir(&path).unwrap();
+        if metadata(&path).expect("failed to get metadata").is_dir() {
+            let paths = fs::read_dir(&path).expect("failed to read dir");
             for path_result in paths {
                 let full_path = path_result.expect("failed to get path").path();
                 if metadata(&full_path)
