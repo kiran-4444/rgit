@@ -54,9 +54,6 @@ impl CommitCMD {
             .collect::<Vec<Entry>>();
 
         let mut root = Tree::build(entries.clone());
-
-        dbg!(root.clone());
-
         root.traverse(&mut db);
         db.store(&mut root);
 

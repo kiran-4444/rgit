@@ -39,11 +39,7 @@ impl Tree {
             .iter_mut()
             .for_each(|(_key, value)| match value {
                 EntryOrTree::Tree(tree) => {
-                    println!("Traversing tree");
-                    println!("{:?}", tree);
                     tree.traverse(db);
-                    println!("Storing tree");
-                    println!("{:?}", tree);
                     db.store(tree);
                 }
                 _ => (),
