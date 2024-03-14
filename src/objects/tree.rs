@@ -1,6 +1,8 @@
-use std::{collections::BTreeMap, iter::zip};
+use std::{clone, collections::BTreeMap, iter::zip};
 
 use itertools::Itertools;
+
+use crate::database::Database;
 
 use super::{storable::Storable, Entry};
 
@@ -30,6 +32,22 @@ impl Tree {
             root.add_entry(entry.parent_directories(), EntryOrTree::Entry(entry));
         }
         root
+    }
+
+    pub fn traverse(&mut self, db: &mut Database) {
+        self.entries
+            .iter_mut()
+            .for_each(|(_key, value)| match value {
+                EntryOrTree::Tree(tree) => {
+                    println!("Traversing tree");
+                    println!("{:?}", tree);
+                    tree.traverse(db);
+                    println!("Storing tree");
+                    println!("{:?}", tree);
+                    db.store(tree);
+                }
+                _ => (),
+            });
     }
 
     pub fn add_entry(&mut self, parents: Vec<String>, entry: EntryOrTree) {
@@ -79,27 +97,44 @@ impl Storable for Tree {
     }
 
     fn data(&self) -> String {
-        let mut entries_vec: Vec<Entry> = Vec::new();
-        entries_vec.sort_by(|a, b| a.name.cmp(&b.name));
-
         let mut hex_oids: Vec<Vec<u8>> = Vec::new();
-        let mut entries = entries_vec
+        let mut entries = self
+            .entries
             .iter()
-            .map(|entry| {
-                let mut output: Vec<&[u8]> = Vec::new();
+            .map(|(name, entry)| match entry {
+                EntryOrTree::Entry(entry) => {
+                    let mut output: Vec<&[u8]> = Vec::new();
 
-                output.push(entry.mode.as_bytes());
-                output.push(&[b' ']);
+                    output.push(entry.mode.as_bytes());
+                    output.push(&[b' ']);
 
-                let entry_name_bytes = entry.name.as_bytes();
-                output.push(entry_name_bytes);
+                    let entry_name_bytes = name.as_bytes();
+                    output.push(entry_name_bytes);
 
-                let null_byte_array = &[b'\x00'];
-                output.push(null_byte_array);
+                    let null_byte_array = &[b'\x00'];
+                    output.push(null_byte_array);
 
-                let decoded = hex::decode(&entry.oid).unwrap();
-                hex_oids.push(decoded.clone());
-                output
+                    let decoded = hex::decode(&entry.oid).expect("Failed to decode oid");
+                    hex_oids.push(decoded.clone());
+                    output
+                }
+                EntryOrTree::Tree(tree) => {
+                    let mut output: Vec<&[u8]> = Vec::new();
+
+                    output.push("40000".as_bytes());
+                    output.push(&[b' ']);
+
+                    let entry_name_bytes = name.as_bytes();
+                    output.push(entry_name_bytes);
+
+                    let null_byte_array = &[b'\x00'];
+                    output.push(null_byte_array);
+
+                    let decoded =
+                        hex::decode(&tree.oid.as_ref().unwrap()).expect("Failed to decode oid");
+                    hex_oids.push(decoded.clone());
+                    output
+                }
             })
             .collect_vec();
 

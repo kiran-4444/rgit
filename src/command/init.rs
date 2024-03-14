@@ -81,12 +81,12 @@ pub fn initialize_git_dir(path: &Path) {
     let console_output = if if_exists {
         format!(
             "Reinitialized empty Git repository in {}",
-            creation_path.to_str().unwrap()
+            creation_path.display()
         )
     } else {
         format!(
             "Initialized empty Git repository in {}",
-            creation_path.to_str().unwrap()
+            creation_path.display()
         )
     };
 

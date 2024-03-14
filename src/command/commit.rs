@@ -33,7 +33,7 @@ impl CommitCMD {
         let git_path = construct_git_path(&Path::new("."));
         let refs = refs::Refs::new(git_path.clone());
         let object_store = git_path.join("objects");
-        let db = database::Database::new(object_store);
+        let mut db = database::Database::new(object_store);
         let workspace = workspace::Workspace::new(PathBuf::from("."));
         let workspace_entries = workspace.list_files(std::env::current_dir().unwrap());
         let entries = workspace_entries
@@ -55,15 +55,9 @@ impl CommitCMD {
 
         let mut root = Tree::build(entries.clone());
 
-        root.entries
-            .iter_mut()
-            .for_each(|(_key, value)| match value {
-                EntryOrTree::Tree(tree) => {
-                    db.store(tree);
-                }
-                _ => (),
-            });
+        dbg!(root.clone());
 
+        root.traverse(&mut db);
         db.store(&mut root);
 
         let (name, email) = self.get_config();
@@ -71,7 +65,12 @@ impl CommitCMD {
 
         let parent = refs.read_head();
         let message = self.message.clone();
-        let mut commit = Commit::new(parent.to_owned(), root.oid.unwrap(), author, &message);
+        let mut commit = Commit::new(
+            parent.to_owned(),
+            root.oid.expect("OID not found"),
+            author,
+            &message,
+        );
         db.store(&mut commit);
 
         let commit_oid = commit.oid.clone().unwrap();
