@@ -77,6 +77,15 @@ pub fn initialize_git_dir(path: &Path) {
         })
         .ok();
 
+    // Create the HEAD file
+    fs::write(creation_path.join("HEAD"), "ref: refs/heads/master")
+        .map_err(|err| {
+            let console_output = format!("Failed to initialize git: {}", err);
+            eprintln!("{}", console_output.red().bold());
+            std::process::exit(1);
+        })
+        .ok();
+
     // Give the user a nice message
     let console_output = if if_exists {
         format!(
