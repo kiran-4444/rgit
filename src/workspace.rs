@@ -60,7 +60,6 @@ impl Workspace {
         }
         if metadata(&path).expect("failed to get metadata").is_dir() {
             let paths = fs::read_dir(&path).expect("failed to read dir");
-            println!("{:?}", paths);
             for path_result in paths {
                 let full_path = path_result.expect("failed to get path").path();
                 if metadata(&full_path)
