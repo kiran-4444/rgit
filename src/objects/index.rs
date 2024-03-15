@@ -13,7 +13,6 @@ static MAX_PATH_SIZE: usize = 0xfff;
 
 #[derive(Debug)]
 struct Entry {
-    name: String,
     oid: String,
     ctime: i64,
     ctime_nsec: i64,
@@ -49,7 +48,6 @@ impl Entry {
         let flags = min(MAX_PATH_SIZE, name.len()) as u16;
         let path = name.clone();
         Self {
-            name,
             oid,
             ctime,
             ctime_nsec,
@@ -99,8 +97,11 @@ impl Index {
         Self { entries, lockfile }
     }
 
-    pub fn add(&mut self, path: String, oid: String, stat: Metadata) {
-        let name = path;
+    pub fn add(&mut self, path: &PathBuf, oid: String, stat: Metadata) {
+        let name = path
+            .to_str()
+            .expect("failed to convert path to str")
+            .to_owned();
         let entry = Entry::new(name.to_owned(), oid, stat);
         self.entries.insert(name, entry);
     }

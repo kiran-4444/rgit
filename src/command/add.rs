@@ -29,14 +29,20 @@ impl AddCMD {
         database: &database::Database,
         index: &mut Index,
     ) {
-        let path = file;
-        let data = workspace.read_file(&path);
-        let stat = workspace.get_file_stat(&path);
+        let files = workspace.list_files(
+            std::env::current_dir()
+                .expect("failed to get current dir")
+                .join(file),
+        );
 
-        let mut blob = Blob::new(data);
-        database.store(&mut blob);
-        let oid = blob.oid.expect("failed to get oid");
-        index.add(path.to_owned(), oid, stat);
+        files.iter().for_each(|entry| {
+            let stat = workspace.get_file_stat(&entry.name);
+            let data = workspace.read_file(&entry.name);
+            let mut blob = Blob::new(data);
+            database.store(&mut blob);
+            let oid = blob.oid.expect("failed to get oid");
+            index.add(&entry.name, oid, stat);
+        });
         index.write_updates();
     }
 }
