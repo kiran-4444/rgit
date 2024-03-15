@@ -74,6 +74,14 @@ impl Workspace {
         }
     }
 
+    pub fn read_file(&self, file_path: &str) -> String {
+        fs::read_to_string(file_path).expect("failed to read file")
+    }
+
+    pub fn get_file_stat(&self, file_path: &str) -> std::fs::Metadata {
+        fs::metadata(file_path).expect("failed to get file metadata")
+    }
+
     pub fn list_files(&self, dir_path: PathBuf) -> Vec<WorkSpaceEntry> {
         let mut vec = Vec::new();
         self._list_files(&mut vec, &dir_path);

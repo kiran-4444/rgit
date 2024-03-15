@@ -1,5 +1,6 @@
 use clap::Subcommand;
 
+mod add;
 mod commit;
 mod init;
 mod status;
@@ -14,6 +15,9 @@ pub enum GitCMD {
 
     /// Show the working tree status
     Status(status::StatusCMD),
+
+    /// Add file contents to the index
+    Add(add::AddCMD),
 }
 
 impl GitCMD {
@@ -22,6 +26,7 @@ impl GitCMD {
             GitCMD::Init(init) => init.run(),
             GitCMD::Commit(commit) => commit.run(),
             GitCMD::Status(status) => status.run(),
+            GitCMD::Add(add) => add.run(),
         }
     }
 }

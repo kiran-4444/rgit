@@ -43,6 +43,7 @@ impl CommitCMD {
                 // check if the file is a directory
                 let entry_name = entry.name.to_owned();
                 let entry_mode = entry.mode.to_owned();
+                println!("{} {}", entry_name.display(), entry_mode);
                 let data = std::fs::read_to_string(&entry_name).expect("failed to read file");
                 let mut blob = Blob::new(data.to_owned());
                 db.store(&mut blob);
