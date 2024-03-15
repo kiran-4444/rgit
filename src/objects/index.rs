@@ -14,37 +14,37 @@ static MAX_PATH_SIZE: usize = 0xfff;
 #[derive(Debug)]
 struct Entry {
     oid: String,
-    ctime: i64,
-    ctime_nsec: i64,
-    mtime: i64,
-    mtime_nsec: i64,
-    dev: u64,
-    ino: u64,
+    ctime: u32,
+    ctime_nsec: u32,
+    mtime: u32,
+    mtime_nsec: u32,
+    dev: u32,
+    ino: u32,
     mode: u32,
     uid: u32,
     gid: u32,
-    file_size: u64,
+    file_size: u32,
     flags: u16,
     path: String,
 }
 
 impl Entry {
     fn new(name: String, oid: String, stat: Metadata) -> Self {
-        let ctime = stat.ctime();
-        let ctime_nsec = stat.ctime_nsec();
-        let mtime = stat.mtime();
-        let mtime_nsec = stat.mtime_nsec();
-        let dev = stat.dev();
-        let ino = stat.ino();
+        let ctime = stat.ctime() as u32;
+        let ctime_nsec = stat.ctime_nsec() as u32;
+        let mtime = stat.mtime() as u32;
+        let mtime_nsec = stat.mtime_nsec() as u32;
+        let dev = stat.dev() as u32;
+        let ino = stat.ino() as u32;
         let is_executable = stat.permissions().mode() & 0o111 != 0;
         let mode = if is_executable {
             EXECUTABLE_MODE
         } else {
             REGULAR_MODE
-        };
-        let uid = stat.uid();
-        let gid = stat.gid();
-        let file_size = stat.len();
+        } as u32;
+        let uid = stat.uid() as u32;
+        let gid = stat.gid() as u32;
+        let file_size = stat.len() as u32;
         let flags = min(MAX_PATH_SIZE, name.len()) as u16;
         let path = name.clone();
         Self {
@@ -66,16 +66,16 @@ impl Entry {
 
     fn convert(&self) -> Vec<u8> {
         let mut data = vec![];
-        data.extend(&(self.ctime as u32).to_be_bytes());
-        data.extend(&(self.ctime_nsec as u32).to_be_bytes());
-        data.extend(&(self.mtime as u32).to_be_bytes());
-        data.extend(&(self.mtime_nsec as u32).to_be_bytes());
-        data.extend(&(self.dev as u32).to_be_bytes());
-        data.extend(&(self.ino as u32).to_be_bytes());
-        data.extend(&(self.mode as u32).to_be_bytes());
-        data.extend(&(self.uid as u32).to_be_bytes());
-        data.extend(&(self.gid as u32).to_be_bytes());
-        data.extend(&(self.file_size as u32).to_be_bytes());
+        data.extend(&self.ctime.to_be_bytes());
+        data.extend(&self.ctime_nsec.to_be_bytes());
+        data.extend(&self.mtime.to_be_bytes());
+        data.extend(&self.mtime_nsec.to_be_bytes());
+        data.extend(&self.dev.to_be_bytes());
+        data.extend(&self.ino.to_be_bytes());
+        data.extend(&self.mode.to_be_bytes());
+        data.extend(&self.uid.to_be_bytes());
+        data.extend(&self.gid.to_be_bytes());
+        data.extend(&self.file_size.to_be_bytes());
         let decoded_hex = hex::decode(self.oid.clone()).expect("failed to decode hex");
         data.extend(decoded_hex);
         data.extend(self.flags.to_be_bytes());
