@@ -1,4 +1,3 @@
-use clap::builder::Str;
 use sha1::{Digest, Sha1};
 
 use crate::lockfile::Lockfile;

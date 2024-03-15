@@ -5,7 +5,7 @@ use crate::{database, workspace};
 
 #[derive(Parser, Debug, PartialEq)]
 pub struct AddCMD {
-    file: String,
+    files: Vec<String>,
 }
 
 impl AddCMD {
@@ -17,14 +17,26 @@ impl AddCMD {
         let database = database::Database::new(git_path.join("objects"));
         let mut index = Index::new(git_path.join("index"));
 
-        let path = self.file.clone();
+        for file in &self.files {
+            self.add_file(&file, &workspace, &database, &mut index);
+        }
+    }
+
+    fn add_file(
+        &self,
+        file: &str,
+        workspace: &workspace::Workspace,
+        database: &database::Database,
+        index: &mut Index,
+    ) {
+        let path = file;
         let data = workspace.read_file(&path);
         let stat = workspace.get_file_stat(&path);
 
         let mut blob = Blob::new(data);
         database.store(&mut blob);
         let oid = blob.oid.expect("failed to get oid");
-        index.add(path, oid, stat);
+        index.add(path.to_owned(), oid, stat);
         index.write_updates();
     }
 }
