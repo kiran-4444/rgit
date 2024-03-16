@@ -1,6 +1,7 @@
-use crate::workspace;
 use clap::Parser;
 use std::path::PathBuf;
+
+use crate::workspace;
 
 #[derive(Parser, Debug, PartialEq)]
 pub struct StatusCMD {}

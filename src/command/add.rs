@@ -1,7 +1,10 @@
 use clap::Parser;
 
-use crate::objects::{Blob, Index};
-use crate::{database, workspace};
+use crate::{
+    database,
+    objects::{Blob, Index},
+    workspace,
+};
 
 #[derive(Parser, Debug, PartialEq)]
 pub struct AddCMD {

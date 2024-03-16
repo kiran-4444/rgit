@@ -1,16 +1,14 @@
+use clap::{arg, Parser};
+use colored::Colorize;
 use std::path::PathBuf;
 use std::{env, path::Path};
 
-use clap::{arg, Parser};
-use colored::Colorize;
-
-use crate::database;
-use crate::refs;
-
-use crate::objects::*;
-use crate::workspace;
-
-use super::init::{check_if_git_dir_exists, construct_git_path};
+use crate::{
+    command::init::{check_if_git_dir_exists, construct_git_path},
+    database,
+    objects::*,
+    refs, workspace,
+};
 
 #[derive(Parser, Debug, PartialEq)]
 pub struct CommitCMD {

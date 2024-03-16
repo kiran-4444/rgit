@@ -1,9 +1,7 @@
 use std::io::Write;
 use std::path::PathBuf;
 
-use crate::objects::Storable;
-use crate::utils::compress_content;
-use crate::utils::hash_content;
+use crate::{objects::Storable, utils::compress_content, utils::hash_content};
 
 pub struct Database {
     pub object_store: PathBuf,

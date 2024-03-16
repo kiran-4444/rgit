@@ -1,11 +1,11 @@
 use sha1::{Digest, Sha1};
-
-use crate::lockfile::Lockfile;
 use std::cmp::min;
 use std::collections::BTreeMap;
 use std::fs::Metadata;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::PathBuf;
+
+use crate::lockfile::Lockfile;
 
 static REGULAR_MODE: u32 = 0o100644;
 static EXECUTABLE_MODE: u32 = 0o100755;

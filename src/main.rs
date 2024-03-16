@@ -1,15 +1,14 @@
+use clap::Parser;
+use command::GitCMD;
+use std::env;
+
 mod command;
 mod database;
 mod lockfile;
 mod objects;
 mod refs;
+mod utils;
 mod workspace;
-
-pub mod utils;
-
-use clap::Parser;
-use command::GitCMD;
-use std::env;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

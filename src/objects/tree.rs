@@ -1,10 +1,7 @@
+use itertools::Itertools;
 use std::{collections::BTreeMap, iter::zip};
 
-use itertools::Itertools;
-
-use crate::database::Database;
-
-use super::{storable::Storable, Entry};
+use crate::{database::Database, objects::storable::Storable, objects::Entry};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EntryOrTree {

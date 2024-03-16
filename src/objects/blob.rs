@@ -1,4 +1,4 @@
-use super::storable::Storable;
+use crate::objects::storable::Storable;
 
 #[derive(Debug, Clone)]
 pub struct Blob {
