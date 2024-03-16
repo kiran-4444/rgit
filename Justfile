@@ -4,8 +4,8 @@ default:
 scratch:
   cargo run --bin scratch
 
-run arg:
-    cargo run --bin r_git {{arg}}
+run +args:
+    cargo run --bin r_git {{args}}
 
 build:
     cargo build
