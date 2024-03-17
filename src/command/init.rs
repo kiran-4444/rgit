@@ -5,6 +5,7 @@ use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::utils::write_to_stderr;
 use crate::utils::write_to_stdout;
 
 #[derive(Parser, Debug, PartialEq)]
@@ -43,52 +44,23 @@ pub fn initialize_git_dir(path: &Path) -> Result<()> {
     let creation_path = construct_git_path(path)?;
     // Remove the .rgit directory if it exists
     let if_exists = if creation_path.exists() {
-        fs::remove_dir_all(&creation_path)
-            .map_err(|err| {
-                let console_output = format!("Failed to reinitialize git: {}", err);
-                eprintln!("{}", console_output.red().bold());
-                std::process::exit(1);
-            })
-            .is_ok()
+        fs::remove_dir_all(&creation_path)?;
+        true
     } else {
         false
     };
 
     // Create the .rgit directory with its parent directories
-    fs::create_dir_all(&creation_path)
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
+    fs::create_dir_all(&creation_path)?;
 
     // Create the objects directory
-    fs::create_dir_all(&creation_path.join("objects"))
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
+    fs::create_dir_all(&creation_path.join("objects"))?;
 
     // Create the refs directory
-    fs::create_dir_all(&creation_path.join("refs"))
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
+    fs::create_dir_all(&creation_path.join("refs"))?;
 
     // Create the HEAD file
-    fs::write(creation_path.join("HEAD"), "ref: refs/heads/master")
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
+    fs::write(creation_path.join("HEAD"), "ref: refs/heads/master")?;
 
     // Give the user a nice message
     let console_output = if if_exists {

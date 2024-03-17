@@ -11,6 +11,13 @@ pub fn write_to_stdout(content: &str) -> Result<()> {
     Ok(())
 }
 
+pub fn write_to_stderr(content: &str) -> Result<()> {
+    let stderr = std::io::stderr();
+    let mut handle = stderr.lock();
+    writeln!(handle, "{}", content)?;
+    Ok(())
+}
+
 pub fn hash_content(content: &str) -> String {
     let mut hasher = Sha1::new();
     hasher.update(content.as_bytes());

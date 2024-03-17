@@ -4,6 +4,7 @@ use colored::Colorize;
 use std::path::PathBuf;
 use std::{env, path::Path};
 
+use crate::utils::write_to_stderr;
 use crate::{
     command::init::{check_if_git_dir_exists, construct_git_path},
     database,
@@ -23,10 +24,9 @@ impl CommitCMD {
     pub fn run(&self) -> Result<()> {
         match check_if_git_dir_exists(&Path::new("."))? {
             false => {
-                eprintln!(
-                    "{}",
-                    "fatal: not a git repository (or any of the parent directories): .rgit".red()
-                );
+                write_to_stderr(
+                    "fatal: not a git repository (or any of the parent directories): .rgit",
+                )?;
                 std::process::exit(1);
             }
             true => (),

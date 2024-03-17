@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::path::PathBuf;
 
-use crate::lockfile::Lockfile;
+use crate::{lockfile::Lockfile, utils::write_to_stderr};
 
 #[derive(Debug, Clone)]
 pub struct Refs {
@@ -18,7 +18,7 @@ impl Refs {
 
         match lockfile.hold_for_update()? {
             false => {
-                eprintln!("fatal: Unable to create lock on HEAD");
+                write_to_stderr("fatal: Unable to create lock on HEAD")?;
                 std::process::exit(1);
             }
             true => (),
