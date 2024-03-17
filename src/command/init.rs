@@ -1,8 +1,11 @@
+use anyhow::Result;
 use clap::Parser;
 use colored::*;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use crate::utils::write_to_stdout;
 
 #[derive(Parser, Debug, PartialEq)]
 pub struct InitCMD {
@@ -10,21 +13,22 @@ pub struct InitCMD {
 }
 
 impl InitCMD {
-    pub fn run(&self) {
+    pub fn run(&self) -> Result<()> {
         match &self.name {
-            Some(path) => initialize_git_dir(path),
-            None => initialize_git_dir(Path::new(".")),
+            Some(path) => initialize_git_dir(path)?,
+            None => initialize_git_dir(Path::new("."))?,
         }
+        Ok(())
     }
 }
 
-pub fn check_if_git_dir_exists(path: &Path) -> bool {
-    let creation_path = construct_git_path(path);
-    creation_path.exists()
+pub fn check_if_git_dir_exists(path: &Path) -> Result<bool> {
+    let creation_path = construct_git_path(path)?;
+    Ok(creation_path.exists())
 }
 
-pub fn construct_git_path(path: &Path) -> PathBuf {
-    let curr_dir = env::current_dir().expect("Failed to get current directory");
+pub fn construct_git_path(path: &Path) -> Result<PathBuf> {
+    let curr_dir = env::current_dir()?;
 
     let creation_path = if path == Path::new(".") {
         curr_dir
@@ -32,11 +36,11 @@ pub fn construct_git_path(path: &Path) -> PathBuf {
         curr_dir.join(path)
     };
 
-    creation_path.join(".rgit")
+    Ok(creation_path.join(".rgit"))
 }
 
-pub fn initialize_git_dir(path: &Path) {
-    let creation_path = construct_git_path(path);
+pub fn initialize_git_dir(path: &Path) -> Result<()> {
+    let creation_path = construct_git_path(path)?;
     // Remove the .rgit directory if it exists
     let if_exists = if creation_path.exists() {
         fs::remove_dir_all(&creation_path)
@@ -99,5 +103,6 @@ pub fn initialize_git_dir(path: &Path) {
         )
     };
 
-    println!("{}", console_output.green());
+    write_to_stdout(&console_output)?;
+    Ok(())
 }

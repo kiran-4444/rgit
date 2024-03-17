@@ -1,7 +1,15 @@
+use anyhow::Result;
 use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use sha1::{Digest, Sha1};
 use std::io::prelude::*;
+
+pub fn write_to_stdout(content: &str) -> Result<()> {
+    let stdout = std::io::stdout();
+    let mut handle = stdout.lock();
+    writeln!(handle, "{}", content)?;
+    Ok(())
+}
 
 pub fn hash_content(content: &str) -> String {
     let mut hasher = Sha1::new();

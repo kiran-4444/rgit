@@ -1,3 +1,4 @@
+use anyhow::Result;
 use itertools::Itertools;
 use std::{collections::BTreeMap, iter::zip};
 
@@ -23,24 +24,26 @@ impl Tree {
         }
     }
 
-    pub fn build(entries: Vec<Entry>) -> Tree {
+    pub fn build(entries: Vec<Entry>) -> Result<Tree> {
         let mut root = Tree::new();
         for entry in entries {
-            root.add_entry(entry.parent_directories(), EntryOrTree::Entry(entry));
+            root.add_entry(entry.parent_directories()?, EntryOrTree::Entry(entry));
         }
-        root
+        Ok(root)
     }
 
-    pub fn traverse(&mut self, db: &mut Database) {
-        self.entries
-            .iter_mut()
-            .for_each(|(_key, value)| match value {
+    pub fn traverse(&mut self, db: &mut Database) -> Result<()> {
+        for (_key, value) in &mut self.entries {
+            match value {
                 EntryOrTree::Tree(tree) => {
-                    tree.traverse(db);
-                    db.store(tree);
+                    tree.traverse(db)?;
+                    db.store(tree)?;
                 }
                 _ => (),
-            });
+            }
+        }
+
+        Ok(())
     }
 
     pub fn add_entry(&mut self, parents: Vec<String>, entry: EntryOrTree) {

@@ -1,3 +1,4 @@
+use anyhow::Result;
 use clap::Parser;
 
 use crate::{
@@ -12,8 +13,8 @@ pub struct AddCMD {
 }
 
 impl AddCMD {
-    pub fn run(&self) {
-        let current_dir = std::env::current_dir().expect("failed to get current directory");
+    pub fn run(&self) -> Result<()> {
+        let current_dir = std::env::current_dir()?;
         let git_path = current_dir.join(".rgit");
 
         let workspace = workspace::Workspace::new(current_dir);
@@ -21,8 +22,9 @@ impl AddCMD {
         let mut index = Index::new(git_path.join("index"));
 
         for file in &self.files {
-            self.add_file(&file, &workspace, &database, &mut index);
+            self.add_file(&file, &workspace, &database, &mut index)?;
         }
+        Ok(())
     }
 
     fn add_file(
@@ -31,21 +33,19 @@ impl AddCMD {
         workspace: &workspace::Workspace,
         database: &database::Database,
         index: &mut Index,
-    ) {
-        let files = workspace.list_files(
-            std::env::current_dir()
-                .expect("failed to get current dir")
-                .join(file),
-        );
+    ) -> Result<()> {
+        let files = workspace.list_files(std::env::current_dir()?.join(file))?;
 
-        files.iter().for_each(|entry| {
-            let stat = workspace.get_file_stat(&entry.name);
-            let data = workspace.read_file(&entry.name);
+        for entry in files {
+            let stat = workspace.get_file_stat(&entry.name)?;
+            let data = workspace.read_file(&entry.name)?;
             let mut blob = Blob::new(data);
-            database.store(&mut blob);
+            database.store(&mut blob)?;
             let oid = blob.oid.expect("failed to get oid");
             index.add(&entry.name, oid, stat);
-        });
-        index.write_updates();
+        }
+
+        index.write_updates()?;
+        Ok(())
     }
 }

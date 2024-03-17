@@ -1,3 +1,4 @@
+use anyhow::Result;
 use clap::{arg, Parser};
 use colored::Colorize;
 use std::path::PathBuf;
@@ -7,7 +8,9 @@ use crate::{
     command::init::{check_if_git_dir_exists, construct_git_path},
     database,
     objects::*,
-    refs, workspace,
+    refs,
+    utils::write_to_stdout,
+    workspace,
 };
 
 #[derive(Parser, Debug, PartialEq)]
@@ -17,8 +20,8 @@ pub struct CommitCMD {
 }
 
 impl CommitCMD {
-    pub fn run(&self) {
-        match check_if_git_dir_exists(&Path::new(".")) {
+    pub fn run(&self) -> Result<()> {
+        match check_if_git_dir_exists(&Path::new("."))? {
             false => {
                 eprintln!(
                     "{}",
@@ -28,37 +31,35 @@ impl CommitCMD {
             }
             true => (),
         }
-        let git_path = construct_git_path(&Path::new("."));
+        let git_path = construct_git_path(&Path::new("."))?;
         let refs = refs::Refs::new(git_path.clone());
         let object_store = git_path.join("objects");
         let mut db = database::Database::new(object_store);
         let workspace = workspace::Workspace::new(PathBuf::from("."));
-        let workspace_entries =
-            workspace.list_files(std::env::current_dir().expect("failed to get current directory"));
+        let workspace_entries = workspace.list_files(std::env::current_dir()?)?;
         let entries = workspace_entries
             .iter()
             .map(|entry| {
                 // check if the file is a directory
                 let entry_name = entry.name.to_owned();
                 let entry_mode = entry.mode.to_owned();
-                println!("{} {}", entry_name.display(), entry_mode);
                 let data = std::fs::read_to_string(&entry_name).expect("failed to read file");
                 let mut blob = Blob::new(data.to_owned());
-                db.store(&mut blob);
-                Entry::new(
+                db.store(&mut blob)?;
+                Ok(Entry::new(
                     entry_name
                         .to_str()
                         .expect("failed to convert path to str")
                         .to_owned(),
                     blob.oid.expect("failed to get oid").to_owned(),
                     entry_mode.to_owned(),
-                )
+                ))
             })
-            .collect::<Vec<Entry>>();
+            .collect::<Result<Vec<Entry>>>()?;
 
-        let mut root = Tree::build(entries.clone());
-        root.traverse(&mut db);
-        db.store(&mut root);
+        let mut root = Tree::build(entries.clone())?;
+        root.traverse(&mut db)?;
+        db.store(&mut root)?;
 
         let (name, email) = self.get_config();
         let author = Author::new(&name, &email);
@@ -71,17 +72,19 @@ impl CommitCMD {
             author,
             &message,
         );
-        db.store(&mut commit);
+        db.store(&mut commit)?;
 
         let commit_oid = commit.oid.expect("Failed to get commit oid").clone();
-        refs.update_head(&commit_oid);
+        refs.update_head(&commit_oid)?;
 
         match parent {
             Some(_) => {
-                println!("{} {}", commit_oid, commit.message);
+                write_to_stdout(&format!("{} {}", commit_oid, commit.message))?;
+                Ok(())
             }
             None => {
-                println!("(root-commit) {} {}", commit_oid, commit.message);
+                write_to_stdout(&format!("(root-commit) {} {}", commit_oid, commit.message))?;
+                Ok(())
             }
         }
     }
