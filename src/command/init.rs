@@ -1,8 +1,10 @@
+use anyhow::Result;
 use clap::Parser;
-use colored::*;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use crate::utils::write_to_stdout;
 
 #[derive(Parser, Debug, PartialEq)]
 pub struct InitCMD {
@@ -10,21 +12,22 @@ pub struct InitCMD {
 }
 
 impl InitCMD {
-    pub fn run(&self) {
+    pub fn run(&self) -> Result<()> {
         match &self.name {
-            Some(path) => initialize_git_dir(path),
-            None => initialize_git_dir(Path::new(".")),
+            Some(path) => initialize_git_dir(path)?,
+            None => initialize_git_dir(Path::new("."))?,
         }
+        Ok(())
     }
 }
 
-pub fn check_if_git_dir_exists(path: &Path) -> bool {
-    let creation_path = construct_git_path(path);
-    creation_path.exists()
+pub fn check_if_git_dir_exists(path: &Path) -> Result<bool> {
+    let creation_path = construct_git_path(path)?;
+    Ok(creation_path.exists())
 }
 
-pub fn construct_git_path(path: &Path) -> PathBuf {
-    let curr_dir = env::current_dir().expect("Failed to get current directory");
+pub fn construct_git_path(path: &Path) -> Result<PathBuf> {
+    let curr_dir = env::current_dir()?;
 
     let creation_path = if path == Path::new(".") {
         curr_dir
@@ -32,59 +35,30 @@ pub fn construct_git_path(path: &Path) -> PathBuf {
         curr_dir.join(path)
     };
 
-    creation_path.join(".rgit")
+    Ok(creation_path.join(".rgit"))
 }
 
-pub fn initialize_git_dir(path: &Path) {
-    let creation_path = construct_git_path(path);
+pub fn initialize_git_dir(path: &Path) -> Result<()> {
+    let creation_path = construct_git_path(path)?;
     // Remove the .rgit directory if it exists
     let if_exists = if creation_path.exists() {
-        fs::remove_dir_all(&creation_path)
-            .map_err(|err| {
-                let console_output = format!("Failed to reinitialize git: {}", err);
-                eprintln!("{}", console_output.red().bold());
-                std::process::exit(1);
-            })
-            .is_ok()
+        fs::remove_dir_all(&creation_path)?;
+        true
     } else {
         false
     };
 
     // Create the .rgit directory with its parent directories
-    fs::create_dir_all(&creation_path)
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
+    fs::create_dir_all(&creation_path)?;
 
     // Create the objects directory
-    fs::create_dir_all(&creation_path.join("objects"))
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
+    fs::create_dir_all(&creation_path.join("objects"))?;
 
     // Create the refs directory
-    fs::create_dir_all(&creation_path.join("refs"))
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
+    fs::create_dir_all(&creation_path.join("refs"))?;
 
     // Create the HEAD file
-    fs::write(creation_path.join("HEAD"), "ref: refs/heads/master")
-        .map_err(|err| {
-            let console_output = format!("Failed to initialize git: {}", err);
-            eprintln!("{}", console_output.red().bold());
-            std::process::exit(1);
-        })
-        .ok();
+    fs::write(creation_path.join("HEAD"), "ref: refs/heads/master")?;
 
     // Give the user a nice message
     let console_output = if if_exists {
@@ -99,5 +73,6 @@ pub fn initialize_git_dir(path: &Path) {
         )
     };
 
-    println!("{}", console_output.green());
+    write_to_stdout(&console_output)?;
+    Ok(())
 }

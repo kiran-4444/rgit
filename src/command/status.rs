@@ -1,17 +1,19 @@
-use crate::workspace;
+use anyhow::Result;
 use clap::Parser;
 use std::path::PathBuf;
+
+use crate::{utils::write_to_stdout, workspace};
 
 #[derive(Parser, Debug, PartialEq)]
 pub struct StatusCMD {}
 
 impl StatusCMD {
-    pub fn run(self) {
+    pub fn run(self) -> Result<()> {
         let workspace = workspace::Workspace::new(PathBuf::from("."));
-        let files =
-            workspace.list_files(std::env::current_dir().expect("Failed to get current directory"));
+        let files = workspace.list_files(std::env::current_dir()?)?;
         for file in files {
-            println!("{}", file.name.display());
+            write_to_stdout(&format!("{}", file.name.display()))?;
         }
+        Ok(())
     }
 }

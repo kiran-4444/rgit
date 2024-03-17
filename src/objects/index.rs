@@ -1,11 +1,12 @@
+use anyhow::Result;
 use sha1::{Digest, Sha1};
-
-use crate::lockfile::Lockfile;
 use std::cmp::min;
 use std::collections::BTreeMap;
 use std::fs::Metadata;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::PathBuf;
+
+use crate::lockfile::Lockfile;
 
 static REGULAR_MODE: u32 = 0o100644;
 static EXECUTABLE_MODE: u32 = 0o100755;
@@ -106,8 +107,8 @@ impl Index {
         self.entries.insert(name, entry);
     }
 
-    pub fn write_updates(&mut self) {
-        if !self.lockfile.hold_for_update() {
+    pub fn write_updates(&mut self) -> Result<()> {
+        if !self.lockfile.hold_for_update()? {
             panic!("failed to hold lockfile for update");
         }
         let mut hasher = Sha1::new();
@@ -121,25 +122,25 @@ impl Index {
         let num_entries = self.entries.len() as u32;
         let num_entries = num_entries.to_be_bytes().to_vec();
 
-        self.lockfile.write(&signature);
-        self.lockfile.write(&version);
-        self.lockfile.write(&num_entries);
+        self.lockfile.write(&signature)?;
+        self.lockfile.write(&version)?;
+        self.lockfile.write(&num_entries)?;
         hasher.update(&signature);
         hasher.update(&version);
         hasher.update(&num_entries);
-        self.entries.iter().for_each(|(_name, entry)| {
+        for (_name, entry) in &self.entries {
             let mut content = entry.convert();
-            self.lockfile.write(&content);
+            self.lockfile.write(&content)?;
             // concatenate null bytes until the next 8-byte boundary
             let padding_length = 8 - (content.len() % 8);
             let padding = vec![0; padding_length];
             content.extend(&padding);
-            self.lockfile.write(&padding);
-
+            self.lockfile.write(&padding)?;
             hasher.update(&content);
-        });
+        }
 
-        self.lockfile.write(&hasher.finalize().to_vec());
-        self.lockfile.commit();
+        self.lockfile.write(&hasher.finalize().to_vec())?;
+        self.lockfile.commit()?;
+        Ok(())
     }
 }

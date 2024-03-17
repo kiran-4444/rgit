@@ -1,3 +1,4 @@
+use anyhow::{Context, Result};
 use std::path::Path;
 
 #[derive(Debug, PartialEq, PartialOrd, Clone, Eq, Hash, Ord)]
@@ -12,11 +13,15 @@ impl Entry {
         Self { name, oid, mode }
     }
 
-    pub fn parent_directories(&self) -> Vec<String> {
+    pub fn parent_directories(&self) -> Result<Vec<String>> {
         let components = Path::new(&self.name)
             .components()
-            .map(|c| c.as_os_str().to_str().expect("Invalid path"))
-            .collect::<Vec<_>>();
+            .map(|c| {
+                Ok(c.as_os_str()
+                    .to_str()
+                    .with_context(|| format!("Invalid character: {:?}", c))?)
+            })
+            .collect::<Result<Vec<_>>>()?;
         let mut parents = Vec::new();
         let mut current_path = String::new();
         for part in components.iter().take(components.len() - 1) {
@@ -24,6 +29,6 @@ impl Entry {
             parents.push(current_path.clone());
             current_path.push('/');
         }
-        parents
+        Ok(parents)
     }
 }

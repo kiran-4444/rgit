@@ -1,3 +1,4 @@
+use anyhow::Result;
 use clap::Subcommand;
 
 mod add;
@@ -21,12 +22,13 @@ pub enum GitCMD {
 }
 
 impl GitCMD {
-    pub fn run(self) {
+    pub fn run(self) -> Result<()> {
         match self {
-            GitCMD::Init(init) => init.run(),
-            GitCMD::Commit(commit) => commit.run(),
-            GitCMD::Status(status) => status.run(),
-            GitCMD::Add(add) => add.run(),
+            GitCMD::Init(init) => init.run()?,
+            GitCMD::Commit(commit) => commit.run()?,
+            GitCMD::Status(status) => status.run()?,
+            GitCMD::Add(add) => add.run()?,
         }
+        Ok(())
     }
 }

@@ -1,15 +1,15 @@
+use anyhow::Result;
+use clap::Parser;
+use command::GitCMD;
+use std::env;
+
 mod command;
 mod database;
 mod lockfile;
 mod objects;
 mod refs;
+mod utils;
 mod workspace;
-
-pub mod utils;
-
-use clap::Parser;
-use command::GitCMD;
-use std::env;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -32,11 +32,13 @@ struct RGit {
 }
 
 impl RGit {
-    fn run(self) {
-        self.git_command.run()
+    fn run(self) -> Result<()> {
+        self.git_command.run()?;
+        Ok(())
     }
 }
 
-fn main() {
-    RGit::parse().run()
+fn main() -> Result<()> {
+    RGit::parse().run()?;
+    Ok(())
 }
