@@ -59,7 +59,7 @@ impl CommitCMD {
         root.traverse(&mut db)?;
         db.store(&mut root)?;
 
-        let (name, email) = self.get_config();
+        let (name, email) = self.get_config()?;
         let author = Author::new(&name, &email);
 
         let parent = refs.read_head();
@@ -87,11 +87,11 @@ impl CommitCMD {
         }
     }
     /// Get the author name and email from the environment variables
-    fn get_config(&self) -> (String, String) {
-        (
-            env::var("RGIT_AUTHOR_NAME").expect("Failed to get author name"),
-            env::var("RGIT_AUTHOR_EMAIL").expect("Failed to get author email"),
-        )
+    fn get_config(&self) -> Result<(String, String)> {
+        Ok((
+            env::var("RGIT_AUTHOR_NAME")?,
+            env::var("RGIT_AUTHOR_EMAIL")?,
+        ))
     }
 }
 
@@ -100,16 +100,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_config_retrieves_author_details_from_env_vars() {
+    fn test_get_config_retrieves_author_details_from_env_vars() -> Result<()> {
         std::env::set_var("RGIT_AUTHOR_NAME", "Test Author");
         std::env::set_var("RGIT_AUTHOR_EMAIL", "test@example.com");
 
         let commit_cmd = CommitCMD {
             message: "".to_string(),
         };
-        let (name, email) = commit_cmd.get_config();
+        let (name, email) = commit_cmd.get_config()?;
 
         assert_eq!(name, "Test Author");
         assert_eq!(email, "test@example.com");
+
+        Ok(())
     }
 }
