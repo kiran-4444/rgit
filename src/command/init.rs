@@ -1,11 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
-use colored::*;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::utils::write_to_stderr;
 use crate::utils::write_to_stdout;
 
 #[derive(Parser, Debug, PartialEq)]

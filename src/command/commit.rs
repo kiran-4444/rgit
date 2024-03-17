@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::{arg, Parser};
-use colored::Colorize;
 use std::path::PathBuf;
 use std::{env, path::Path};
 
