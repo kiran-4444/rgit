@@ -3,13 +3,12 @@ use clap::{arg, Parser};
 use std::path::PathBuf;
 use std::{env, path::Path};
 
-use crate::utils::write_to_stderr;
 use crate::{
     command::init::{check_if_git_dir_exists, construct_git_path},
     database,
     objects::*,
     refs,
-    utils::write_to_stdout,
+    utils::{write_to_stderr, write_to_stdout},
     workspace,
 };
 
