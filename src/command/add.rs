@@ -9,6 +9,7 @@ use crate::{
 
 #[derive(Parser, Debug, PartialEq)]
 pub struct AddCMD {
+    #[clap(required = true)]
     files: Vec<String>,
 }
 
