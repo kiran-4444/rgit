@@ -1,8 +1,8 @@
 use anyhow::Result;
-use sha1::{Digest, Sha1};
 use std::cmp::min;
 use std::collections::BTreeMap;
 use std::fs::{File, Metadata};
+use std::io::Seek;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::PathBuf;
 
@@ -95,13 +95,18 @@ static ENTRY_BLOCK_SIZE: usize = 8;
 pub struct Index {
     entries: BTreeMap<String, Entry>,
     lockfile: Lockfile,
+    changed: bool,
 }
 
 impl Index {
     pub fn new(path: PathBuf) -> Self {
         let lockfile = Lockfile::new(path);
         let entries = BTreeMap::new();
-        Self { entries, lockfile }
+        Self {
+            entries,
+            lockfile,
+            changed: false,
+        }
     }
 
     pub fn add(&mut self, path: &PathBuf, oid: String, stat: Metadata) {
@@ -111,52 +116,57 @@ impl Index {
             .to_owned();
         let entry = Entry::new(name.to_owned(), oid, stat);
         self.entries.insert(name, entry);
+        self.changed = true;
     }
 
     pub fn write_updates(&mut self) -> Result<()> {
-        if !self.lockfile.hold_for_update()? {
-            panic!("failed to hold lockfile for update");
+        if !self.changed {
+            self.lockfile.rollback()?;
         }
-        let mut hasher = Sha1::new();
+
+        let mut file = std::fs::OpenOptions::new().write(true).create(true).open(
+            self.lockfile
+                .lock_file_path
+                .as_ref()
+                .expect("failed to get lock_file_path ref"),
+        )?;
+        let mut writer = Checksum::new(&mut file);
 
         let signature = "DIRC".to_owned().bytes().collect::<Vec<u8>>();
+        writer.write(&signature)?;
 
         // pad the version to 4 bytes
         let version = 2u32.to_be_bytes().to_vec();
+        writer.write(&version)?;
 
         // pad the number of entries to 4 bytes
         let num_entries = self.entries.len() as u32;
         let num_entries = num_entries.to_be_bytes().to_vec();
+        writer.write(&num_entries)?;
 
-        self.lockfile.write(&signature)?;
-        self.lockfile.write(&version)?;
-        self.lockfile.write(&num_entries)?;
-        hasher.update(&signature);
-        hasher.update(&version);
-        hasher.update(&num_entries);
         for (_name, entry) in &self.entries {
             let mut content = entry.convert();
-            self.lockfile.write(&content)?;
             // concatenate null bytes until the next 8-byte boundary
             let padding_length = 8 - (content.len() % 8);
             let padding = vec![0; padding_length];
             content.extend(&padding);
-            self.lockfile.write(&padding)?;
-            hasher.update(&content);
+            writer.write(&content)?;
         }
 
-        self.lockfile.write(&hasher.finalize().to_vec())?;
+        writer.write_checksum()?;
         self.lockfile.commit()?;
+        self.changed = false;
         Ok(())
     }
 
     fn clear(&mut self) {
         self.entries.clear();
+        self.changed = false;
     }
 
-    fn open_index_file(&self) -> Result<Option<Vec<u8>>> {
+    fn open_index_file(&self) -> Result<Option<File>> {
         if self.lockfile.file_path.exists() {
-            let file = std::fs::read(self.lockfile.file_path.clone())?;
+            let file = File::open(&self.lockfile.file_path)?;
             Ok(Some(file))
         } else {
             Ok(None)
@@ -165,6 +175,7 @@ impl Index {
 
     fn read_header(&mut self, reader: &mut Checksum) -> Result<u32> {
         let header = reader.read(HEADER_SIZE)?;
+        println!("{:?}", header);
         let signature = &header[0..4];
         if signature != b"DIRC" {
             anyhow::bail!("Invalid index file signature");
@@ -181,10 +192,11 @@ impl Index {
         for _ in 0..count {
             let mut entry = reader.read(ENTRY_MIN_SIZE)?;
             loop {
-                if entry[entry.len() - 1].eq(&0) {
+                if entry[entry.len() - 1] == 0 as u8 {
                     break;
                 }
                 let padding = reader.read(ENTRY_BLOCK_SIZE)?;
+                println!("{:?}", padding);
                 entry.extend(padding);
             }
 
@@ -228,12 +240,11 @@ impl Index {
         if file.is_none() {
             return Ok(());
         }
-        let file = file.unwrap();
-        let mut reader = Checksum::new(file.as_slice());
+        let mut file = file.expect("failed to get file content");
+        let mut reader = Checksum::new(&mut file);
         let count = self.read_header(&mut reader)?;
         self.read_entries(&mut reader, count)?;
         reader.verify_checksum()?;
-
         Ok(())
     }
 

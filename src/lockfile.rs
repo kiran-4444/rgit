@@ -19,6 +19,23 @@ impl Lockfile {
         }
     }
 
+    pub fn rollback(&mut self) -> Result<()> {
+        if self.lock.is_none() {
+            bail!("Lock is not held");
+        }
+
+        // We release the lock
+        self.lock = None;
+
+        // We remove the lock file
+        std::fs::remove_file(
+            self.lock_file_path
+                .as_ref()
+                .expect("failed to get lock_file_path ref"),
+        )?;
+        Ok(())
+    }
+
     /// This function will create a lock file and hold the lock if the lock file does not exist.
     pub fn hold_for_update(&mut self) -> Result<bool> {
         if self.lock.is_none() {

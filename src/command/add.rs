@@ -40,7 +40,6 @@ impl AddCMD {
         match index.load_for_update()? {
             true => {
                 for entry in files {
-                    println!("Adding {}", &entry.name.display());
                     let stat = workspace.get_file_stat(&entry.name)?;
                     let data = workspace.read_file(&entry.name)?;
                     let mut blob = Blob::new(data);
