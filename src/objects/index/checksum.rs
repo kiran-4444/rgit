@@ -5,8 +5,6 @@ use std::{
     io::{prelude::*, BufReader, SeekFrom},
 };
 
-static CHECKSUM_SIZE: usize = 20;
-
 #[derive(Debug)]
 pub struct Checksum<'a> {
     file: &'a mut File,
@@ -31,7 +29,6 @@ impl<'a> Checksum<'a> {
     }
 
     pub fn write(&mut self, data: &[u8]) -> Result<()> {
-        println!("Writing data: {:?}", data);
         self.file.write_all(data)?;
         self.hasher.update(data);
         Ok(())
@@ -39,20 +36,17 @@ impl<'a> Checksum<'a> {
 
     pub fn write_checksum(&mut self) -> Result<()> {
         let checksum = self.hasher.clone().finalize().to_vec();
-        println!("Writing checksum: {:?}", checksum);
         self.write(&checksum)?;
         Ok(())
     }
 
     pub fn verify_checksum(&mut self) -> Result<()> {
-        println!("Verifying checksum");
         let file = self.file.try_clone()?;
         let mut reader = BufReader::new(file);
         let mut buffer = vec![0; 20];
         reader.read_exact(&mut buffer)?;
         let checksum = buffer;
         let expected: Vec<u8> = self.hasher.clone().finalize().to_vec();
-        println!("Checksum: {:?}, Expected: {:?}", checksum, expected);
         if checksum != expected {
             anyhow::bail!("Checksum mismatch");
         }

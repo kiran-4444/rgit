@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::cmp::min;
 use std::collections::BTreeMap;
 use std::fs::{File, Metadata};
+use std::io::Write;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::PathBuf;
 
@@ -82,6 +83,13 @@ impl Entry {
         data.extend(decoded_hex);
         data.extend(self.flags.to_be_bytes());
         data.extend(self.path.as_bytes());
+        if data.len() % 8 == 0 && data[data.len() - 1] == 0 {
+            return data;
+        }
+
+        let padding_length = 8 - (data.len() % 8);
+        let padding = vec![0; padding_length];
+        data.extend(&padding);
         data
     }
 }
@@ -144,12 +152,7 @@ impl Index {
         writer.write(&num_entries)?;
 
         for (_name, entry) in &self.entries {
-            let mut content = entry.convert();
-            // concatenate null bytes until the next 8-byte boundary
-            let padding_length = (8 - (content.len() % 8)) % 8;
-            let padding = vec![0; padding_length];
-            println!("Padding: {:?}", padding);
-            content.extend(&padding);
+            let content = entry.convert();
             writer.write(&content)?;
         }
 
@@ -195,7 +198,6 @@ impl Index {
                     break;
                 }
                 let padding = reader.read(ENTRY_BLOCK_SIZE)?;
-                println!("Padding: {:?}", padding);
                 entry.extend(padding);
             }
 
