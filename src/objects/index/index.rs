@@ -2,7 +2,6 @@ use anyhow::Result;
 use std::cmp::min;
 use std::collections::BTreeMap;
 use std::fs::{File, Metadata};
-use std::io::Seek;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::PathBuf;
 
@@ -147,8 +146,9 @@ impl Index {
         for (_name, entry) in &self.entries {
             let mut content = entry.convert();
             // concatenate null bytes until the next 8-byte boundary
-            let padding_length = 8 - (content.len() % 8);
+            let padding_length = (8 - (content.len() % 8)) % 8;
             let padding = vec![0; padding_length];
+            println!("Padding: {:?}", padding);
             content.extend(&padding);
             writer.write(&content)?;
         }
@@ -175,7 +175,6 @@ impl Index {
 
     fn read_header(&mut self, reader: &mut Checksum) -> Result<u32> {
         let header = reader.read(HEADER_SIZE)?;
-        println!("{:?}", header);
         let signature = &header[0..4];
         if signature != b"DIRC" {
             anyhow::bail!("Invalid index file signature");
@@ -196,7 +195,7 @@ impl Index {
                     break;
                 }
                 let padding = reader.read(ENTRY_BLOCK_SIZE)?;
-                println!("{:?}", padding);
+                println!("Padding: {:?}", padding);
                 entry.extend(padding);
             }
 
