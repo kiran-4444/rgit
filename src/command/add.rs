@@ -37,16 +37,24 @@ impl AddCMD {
     ) -> Result<()> {
         let files = workspace.list_files(std::env::current_dir()?.join(file))?;
 
-        for entry in files {
-            let stat = workspace.get_file_stat(&entry.name)?;
-            let data = workspace.read_file(&entry.name)?;
-            let mut blob = Blob::new(data);
-            database.store(&mut blob)?;
-            let oid = blob.oid.expect("failed to get oid");
-            index.add(&entry.name, oid, stat);
+        match index.load_for_update()? {
+            true => {
+                for entry in files {
+                    println!("Adding {}", &entry.name.display());
+                    let stat = workspace.get_file_stat(&entry.name)?;
+                    let data = workspace.read_file(&entry.name)?;
+                    let mut blob = Blob::new(data);
+                    database.store(&mut blob)?;
+                    let oid = blob.oid.expect("failed to get oid");
+                    index.add(&entry.name, oid, stat);
+                }
+                index.write_updates()?;
+            }
+            false => {
+                anyhow::bail!("Failed to hold index for update");
+            }
         }
 
-        index.write_updates()?;
         Ok(())
     }
 }

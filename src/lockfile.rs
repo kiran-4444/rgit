@@ -19,6 +19,7 @@ impl Lockfile {
         }
     }
 
+    /// This function will create a lock file and hold the lock if the lock file does not exist.
     pub fn hold_for_update(&mut self) -> Result<bool> {
         if self.lock.is_none() {
             // If the lock file already exists, we return back false
@@ -28,6 +29,7 @@ impl Lockfile {
                 .expect("failed to get reference")
                 .exists()
             {
+                println!("Lock file already exists");
                 return Ok(false);
             }
 
@@ -56,6 +58,7 @@ impl Lockfile {
                 bail!("Lockfile is missing, but lock is held");
             }
 
+            println!("Lock file already exists, but lock is held");
             // If the lock file is still there, we still hold the lock
             Ok(false)
         }
