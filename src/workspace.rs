@@ -27,6 +27,7 @@ impl Workspace {
             ".pgit",
             "pgit.py",
             ".mypy_cache",
+            "target",
         ];
 
         ignores.iter().map(|s| s.to_string()).collect()

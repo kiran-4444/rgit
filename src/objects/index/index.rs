@@ -140,12 +140,9 @@ impl Index {
             .parent_directories()
             .expect("failed to get parent directories");
         parents.reverse();
-        println!("parents: {:?}", parents);
-        println!("entries: {:?}", self.entries);
 
         for parent in parents {
             let parent = parent.trim_end_matches('\0').to_owned();
-            println!("Checking parent: {:?}", parent);
 
             if self.entries.contains_key(&parent) {
                 self.entries.remove(&parent);
