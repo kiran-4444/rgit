@@ -135,12 +135,32 @@ impl Index {
         }
     }
 
+    fn discard_conflicts(&mut self, entry: &Entry) {
+        let mut parents = entry
+            .parent_directories()
+            .expect("failed to get parent directories");
+        parents.reverse();
+        println!("parents: {:?}", parents);
+        println!("entries: {:?}", self.entries);
+
+        for parent in parents {
+            let parent = parent.trim_end_matches('\0').to_owned();
+            println!("Checking parent: {:?}", parent);
+
+            if self.entries.contains_key(&parent) {
+                self.entries.remove(&parent);
+            }
+        }
+    }
+
     pub fn add(&mut self, path: &PathBuf, oid: String, stat: Metadata) {
         let name = path
             .to_str()
             .expect("failed to convert path to str")
             .to_owned();
+        // let name = name.trim_start_matches("\0").to_owned();
         let entry = Entry::new(name.to_owned(), oid, stat);
+        self.discard_conflicts(&entry);
         self.entries.insert(name, entry);
         self.changed = true;
     }
@@ -248,6 +268,7 @@ impl Index {
                 flags,
                 path: path.clone(),
             };
+            let path = path.trim_end_matches('\0').to_owned();
             self.entries.insert(path, entry);
         }
 
