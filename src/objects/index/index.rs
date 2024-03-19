@@ -13,21 +13,21 @@ static REGULAR_MODE: u32 = 0o100644;
 static EXECUTABLE_MODE: u32 = 0o100755;
 static MAX_PATH_SIZE: usize = 0xfff;
 
-#[derive(Debug)]
-struct Entry {
-    oid: String,
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Entry {
+    pub oid: String,
     ctime: u32,
     ctime_nsec: u32,
     mtime: u32,
     mtime_nsec: u32,
     dev: u32,
     ino: u32,
-    mode: u32,
+    pub mode: u32,
     uid: u32,
     gid: u32,
     file_size: u32,
     flags: u16,
-    path: String,
+    pub path: String,
 }
 
 impl Entry {
@@ -91,15 +91,35 @@ impl Entry {
         data.extend(&padding);
         data
     }
+
+    pub fn parent_directories(&self) -> Result<Vec<String>> {
+        let mut parents = Vec::new();
+        let components = PathBuf::from(&self.path)
+            .components()
+            .map(|c| {
+                Ok(c.as_os_str()
+                    .to_str()
+                    .expect("failed to convert path to str")
+                    .to_owned())
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let mut current_path = String::new();
+        for part in components.iter().take(components.len() - 1) {
+            current_path.push_str(part);
+            parents.push(current_path.clone());
+            current_path.push('/');
+        }
+        Ok(parents)
+    }
 }
 
 static HEADER_SIZE: usize = 12;
 static ENTRY_MIN_SIZE: usize = 64;
 static ENTRY_BLOCK_SIZE: usize = 8;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Index {
-    entries: BTreeMap<String, Entry>,
+    pub entries: BTreeMap<String, Entry>,
     lockfile: Lockfile,
     changed: bool,
 }
@@ -234,7 +254,7 @@ impl Index {
         Ok(())
     }
 
-    fn load(&mut self) -> Result<()> {
+    pub fn load(&mut self) -> Result<()> {
         self.clear();
         let file = self.open_index_file()?;
         if file.is_none() {

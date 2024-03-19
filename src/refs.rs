@@ -36,7 +36,14 @@ impl Refs {
 
     pub fn read_head(&self) -> Option<String> {
         match self.head_path().exists() {
-            true => Some(std::fs::read_to_string(self.head_path()).expect("Failed to read HEAD")),
+            true => {
+                let head_content =
+                    std::fs::read_to_string(self.head_path()).expect("Failed to read HEAD");
+                if head_content.starts_with("ref: ") {
+                    return None;
+                }
+                Some(head_content)
+            }
             false => None,
         }
     }

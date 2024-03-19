@@ -1,6 +1,5 @@
 use anyhow::Result;
 use clap::{arg, Parser};
-use std::path::PathBuf;
 use std::{env, path::Path};
 
 use crate::{
@@ -9,7 +8,6 @@ use crate::{
     objects::*,
     refs,
     utils::{write_to_stderr, write_to_stdout},
-    workspace,
 };
 
 #[derive(Parser, Debug, PartialEq)]
@@ -33,28 +31,15 @@ impl CommitCMD {
         let refs = refs::Refs::new(git_path.clone());
         let object_store = git_path.join("objects");
         let mut db = database::Database::new(object_store);
-        let workspace = workspace::Workspace::new(PathBuf::from("."));
-        let workspace_entries = workspace.list_files(std::env::current_dir()?)?;
-        let entries = workspace_entries
-            .iter()
-            .map(|entry| {
-                // check if the file is a directory
-                let entry_name = entry.name.to_owned();
-                let entry_mode = entry.mode.to_owned();
-                let data = std::fs::read_to_string(&entry_name).expect("failed to read file");
-                let mut blob = Blob::new(data.to_owned());
-                db.store(&mut blob)?;
-                Ok(Entry::new(
-                    entry_name
-                        .to_str()
-                        .expect("failed to convert path to str")
-                        .to_owned(),
-                    blob.oid.expect("failed to get oid").to_owned(),
-                    entry_mode.to_owned(),
-                ))
-            })
-            .collect::<Result<Vec<Entry>>>()?;
+        let mut index = Index::new(git_path.join("index"));
 
+        index.load()?;
+        let entries = index
+            .entries
+            .values()
+            .cloned()
+            .collect::<Vec<index::Entry>>();
+        println!("{:?}", entries);
         let mut root = Tree::build(entries.clone())?;
         root.traverse(&mut db)?;
         db.store(&mut root)?;

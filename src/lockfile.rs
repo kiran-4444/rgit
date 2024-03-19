@@ -1,12 +1,13 @@
 use anyhow::{bail, Result};
+use cloneable_file::CloneableFile;
 use std::fs::{rename, OpenOptions};
 use std::path::PathBuf;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Lockfile {
     pub file_path: PathBuf,
     pub lock_file_path: Option<PathBuf>,
-    pub lock: Option<std::fs::File>,
+    pub lock: Option<CloneableFile>,
 }
 
 impl Lockfile {
@@ -52,7 +53,7 @@ impl Lockfile {
 
             // If the lock file does not exist, we create it and hold the lock.
             // If the lock file already exists, we need to error out
-            self.lock = Some(
+            self.lock = Some(CloneableFile::from(
                 OpenOptions::new()
                     .read(true)
                     .write(true)
@@ -63,7 +64,7 @@ impl Lockfile {
                             .as_ref()
                             .expect("failed to get lock_file_path ref"),
                     )?,
-            );
+            ));
             Ok(true)
         } else {
             if !self
