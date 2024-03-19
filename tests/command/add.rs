@@ -238,3 +238,62 @@ fn adding_empty_dirs_should_succeed_without_updating_index() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn adding_file_with_dirname_should_fail() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+    setup_rgit(&temp_dir.path().to_path_buf())?;
+    setup_git(&temp_dir.path().to_path_buf())?;
+
+    let file_path = temp_dir.path().join("alice.txt");
+    write(&file_path, "Alice").expect("Failed to write file");
+
+    let dir_path = temp_dir.path().join("nested");
+    std::fs::create_dir(&dir_path).expect("Failed to create directory");
+
+    let file_path = dir_path.join("bob.txt");
+    write(&file_path, "Bob").expect("Failed to write file");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("nested/")
+        .assert()
+        .success();
+
+    let mut cmd = get_git_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("nested/")
+        .assert()
+        .success();
+
+    // remove the nested directory
+    fs::remove_dir_all(&dir_path).expect("Failed to remove directory");
+    let file_path = temp_dir.path().join("nested");
+    write(&file_path, "nested").expect("Failed to write file");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("nested")
+        .assert()
+        .success();
+
+    let mut cmd = get_git_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("nested")
+        .assert()
+        .success();
+
+    let rgit_index_content =
+        read(temp_dir.path().join(".rgit/index")).expect("Failed to read index file");
+
+    let git_index_content =
+        read(temp_dir.path().join(".git/index")).expect("Failed to read index file");
+
+    assert_ne!(rgit_index_content, git_index_content);
+
+    Ok(())
+}
