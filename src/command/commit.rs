@@ -4,9 +4,9 @@ use std::{env, path::Path};
 
 use crate::{
     command::init::{check_if_git_dir_exists, construct_git_path},
-    database,
-    objects::*,
-    refs,
+    database::{Author, Commit, Database, Tree},
+    index::{Entry, Index},
+    refs::Refs,
     utils::{write_to_stderr, write_to_stdout},
 };
 
@@ -28,17 +28,13 @@ impl CommitCMD {
             true => (),
         }
         let git_path = construct_git_path(&Path::new("."))?;
-        let refs = refs::Refs::new(git_path.clone());
+        let refs = Refs::new(git_path.clone());
         let object_store = git_path.join("objects");
-        let mut db = database::Database::new(object_store);
+        let mut db = Database::new(object_store);
         let mut index = Index::new(git_path.join("index"));
 
         index.load()?;
-        let entries = index
-            .entries
-            .values()
-            .cloned()
-            .collect::<Vec<index::Entry>>();
+        let entries = index.entries.values().cloned().collect::<Vec<Entry>>();
         let mut root = Tree::build(entries.clone())?;
         root.traverse(&mut db)?;
         db.store(&mut root)?;

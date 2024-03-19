@@ -1,4 +1,4 @@
-use crate::{objects::storable::Storable, objects::Author};
+use crate::{database::storable::Storable, database::Author};
 
 #[derive(Debug, Clone)]
 pub struct Commit<'a> {

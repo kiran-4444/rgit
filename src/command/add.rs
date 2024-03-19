@@ -1,11 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 
-use crate::{
-    database,
-    objects::{Blob, Index},
-    workspace,
-};
+use crate::{database::Blob, database::Database, index::Index, workspace::Workspace};
 
 #[derive(Parser, Debug, PartialEq)]
 pub struct AddCMD {
@@ -18,8 +14,8 @@ impl AddCMD {
         let current_dir = std::env::current_dir()?;
         let git_path = current_dir.join(".rgit");
 
-        let workspace = workspace::Workspace::new(current_dir);
-        let database = database::Database::new(git_path.join("objects"));
+        let workspace = Workspace::new(current_dir);
+        let database = Database::new(git_path.join("objects"));
         let mut index = Index::new(git_path.join("index"));
 
         for file in &self.files {
@@ -31,8 +27,8 @@ impl AddCMD {
     fn add_file(
         &self,
         file: &str,
-        workspace: &workspace::Workspace,
-        database: &database::Database,
+        workspace: &Workspace,
+        database: &Database,
         index: &mut Index,
     ) -> Result<()> {
         let files = workspace.list_files(std::env::current_dir()?.join(file))?;
@@ -48,6 +44,7 @@ impl AddCMD {
                     let oid = blob.oid.expect("failed to get oid");
                     index.add(&entry.name, oid, stat);
                 }
+                // should not worry about adding empty directories
                 if files.len() > 0 {
                     index.write_updates()?;
                 }

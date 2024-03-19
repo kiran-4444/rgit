@@ -2,7 +2,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::{collections::BTreeMap, fs, iter::zip, os::unix::fs::PermissionsExt};
 
-use crate::{database::Database, objects::index::Entry, objects::storable::Storable};
+use crate::{database::storable::Storable, database::Database, index::Entry};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EntryOrTree {
