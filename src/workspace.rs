@@ -2,6 +2,8 @@ use anyhow::{anyhow, Result};
 use std::fs::{self, metadata, Metadata};
 use std::path::{Path, PathBuf};
 use std::{fmt::Debug, os::unix::fs::PermissionsExt};
+
+use crate::utils::get_root_path;
 #[derive(Debug)]
 pub struct WorkSpaceEntry {
     pub name: PathBuf,
@@ -10,27 +12,28 @@ pub struct WorkSpaceEntry {
 
 #[derive(Debug, Clone)]
 pub struct Workspace {
-    pub root_path: std::path::PathBuf,
+    pub root_path: PathBuf,
 }
 
 impl Workspace {
-    pub fn new(root_path: std::path::PathBuf) -> Self {
+    pub fn new(root_path: PathBuf) -> Self {
         Workspace { root_path }
     }
 
-    fn ignored_files(&self) -> Vec<String> {
-        let ignores = vec![
-            ".",
-            "..",
-            ".rgit",
-            ".git",
-            ".pgit",
-            "pgit.py",
-            ".mypy_cache",
-            "target",
-        ];
-
-        ignores.iter().map(|s| s.to_string()).collect()
+    fn ignored_files(&self) -> Result<Vec<String>> {
+        let root_path = get_root_path()?;
+        let gitignore_path = root_path.join(".rgitignore");
+        let mut ignored_files = vec![];
+        if gitignore_path.exists() {
+            let content = fs::read_to_string(gitignore_path).expect("failed to read .rgitignore");
+            let content = content.trim();
+            ignored_files = content
+                .split("\n")
+                .map(|s| s.to_string().trim_matches('/').to_string())
+                .collect::<Vec<String>>();
+        }
+        ignored_files.push(".rgit".to_string());
+        Ok(ignored_files)
     }
 
     fn get_mode(&self, file_path: &PathBuf) -> Result<String> {
@@ -50,16 +53,30 @@ impl Workspace {
     }
 
     fn _list_files(&self, vec: &mut Vec<PathBuf>, path: &Path) -> Result<()> {
-        if self.ignored_files().contains(&self.get_file_name(&path)?) {
-            return Ok(());
-        }
         if metadata(&path)?.is_dir() {
+            let last_component = path.components().last().unwrap();
+            println!(
+                "last_component: {:?}",
+                last_component.as_os_str().to_str().unwrap()
+            );
+            if self
+                .ignored_files()?
+                .contains(&last_component.as_os_str().to_str().unwrap().to_string())
+            {
+                println!("ignored: {:?}", last_component);
+                return Ok(());
+            }
             let paths = fs::read_dir(&path)?;
             for path_result in paths {
                 let full_path = path_result?.path();
                 if metadata(&full_path)?.is_dir() {
                     self._list_files(vec, &full_path)?;
                 } else {
+                    let file_name = self.get_file_name(&full_path)?;
+                    if self.ignored_files()?.contains(&file_name) {
+                        println!("ignored: {:?}", file_name);
+                        continue;
+                    }
                     vec.push(full_path);
                 }
             }

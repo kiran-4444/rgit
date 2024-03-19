@@ -3,6 +3,7 @@ use flate2::write::ZlibEncoder;
 use flate2::Compression;
 use sha1::{Digest, Sha1};
 use std::io::prelude::*;
+use std::path::PathBuf;
 
 pub fn write_to_stdout(content: &str) -> Result<()> {
     let stdout = std::io::stdout();
@@ -31,4 +32,12 @@ pub fn compress_content(content: &str) -> Vec<u8> {
         .write_all(content.as_bytes())
         .expect("Failed to compress content");
     encoder.finish().expect("Failed to finish compression")
+}
+
+pub fn get_root_path() -> Result<PathBuf> {
+    let current_dir = std::env::current_dir()?;
+    if !current_dir.join(".rgit").exists() {
+        anyhow::bail!("Not a rgit repository");
+    }
+    Ok(current_dir)
 }

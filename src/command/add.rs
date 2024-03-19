@@ -1,7 +1,12 @@
 use anyhow::Result;
 use clap::Parser;
 
-use crate::{database::Blob, database::Database, index::Index, workspace::Workspace};
+use crate::{
+    database::{Blob, Database},
+    index::Index,
+    utils::get_root_path,
+    workspace::Workspace,
+};
 
 #[derive(Parser, Debug, PartialEq)]
 pub struct AddCMD {
@@ -11,7 +16,7 @@ pub struct AddCMD {
 
 impl AddCMD {
     pub fn run(&self) -> Result<()> {
-        let current_dir = std::env::current_dir()?;
+        let current_dir = get_root_path()?;
         let git_path = current_dir.join(".rgit");
 
         let workspace = Workspace::new(current_dir);
@@ -31,7 +36,11 @@ impl AddCMD {
         database: &Database,
         index: &mut Index,
     ) -> Result<()> {
-        let files = workspace.list_files(std::env::current_dir()?.join(file))?;
+        let root_path = get_root_path()?;
+        let files = match file {
+            "." => workspace.list_files(root_path)?,
+            _ => workspace.list_files(root_path.join(file))?,
+        };
 
         match index.load_for_update()? {
             true => {
