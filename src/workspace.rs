@@ -69,8 +69,8 @@ impl Workspace {
         }
     }
 
-    pub fn read_file(&self, file_path: &PathBuf) -> Result<String> {
-        Ok(fs::read_to_string(file_path)?)
+    pub fn read_file(&self, file_path: &PathBuf) -> Result<Vec<u8>> {
+        Ok(fs::read(file_path)?)
     }
 
     pub fn get_file_stat(&self, file_path: &PathBuf) -> Result<Metadata> {

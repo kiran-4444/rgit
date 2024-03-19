@@ -41,8 +41,9 @@ impl AddCMD {
             true => {
                 for entry in &files {
                     let stat = workspace.get_file_stat(&entry.name)?;
-                    let data = workspace.read_file(&entry.name)?;
-                    let mut blob = Blob::new(data);
+                    let raw_data = workspace.read_file(&entry.name)?;
+                    let data = unsafe { std::str::from_utf8_unchecked(&raw_data) };
+                    let mut blob = Blob::new(data.to_owned());
                     database.store(&mut blob)?;
                     let oid = blob.oid.expect("failed to get oid");
                     index.add(&entry.name, oid, stat);
