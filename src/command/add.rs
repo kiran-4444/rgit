@@ -39,7 +39,7 @@ impl AddCMD {
 
         match index.load_for_update()? {
             true => {
-                for entry in files {
+                for entry in &files {
                     let stat = workspace.get_file_stat(&entry.name)?;
                     let data = workspace.read_file(&entry.name)?;
                     let mut blob = Blob::new(data);
@@ -47,7 +47,9 @@ impl AddCMD {
                     let oid = blob.oid.expect("failed to get oid");
                     index.add(&entry.name, oid, stat);
                 }
-                index.write_updates()?;
+                if files.len() > 0 {
+                    index.write_updates()?;
+                }
             }
             false => {
                 anyhow::bail!("Failed to hold index for update");

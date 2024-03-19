@@ -120,8 +120,8 @@ static ENTRY_BLOCK_SIZE: usize = 8;
 #[derive(Debug, Clone)]
 pub struct Index {
     pub entries: BTreeMap<String, Entry>,
-    lockfile: Lockfile,
-    changed: bool,
+    pub lockfile: Lockfile,
+    pub changed: bool,
 }
 
 impl Index {

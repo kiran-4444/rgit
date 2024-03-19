@@ -1,6 +1,6 @@
 use anyhow::Result;
 use assert_cmd::prelude::*;
-use std::fs::{read, write};
+use std::fs::{self, read, write};
 use tempdir::TempDir;
 
 use crate::setup::{get_git_cmd, get_rgit_cmd, setup_git, setup_rgit};
@@ -14,7 +14,7 @@ fn test_add_with_no_args() {
 #[test]
 fn test_add_with_one_file() -> Result<()> {
     let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
-    setup_rgit(&temp_dir)?;
+    setup_rgit(&temp_dir.path().to_path_buf())?;
 
     let file_path = temp_dir.path().join("file");
     write(&file_path, "Hello, World!").expect("Failed to write file");
@@ -29,7 +29,7 @@ fn test_add_with_one_file() -> Result<()> {
     let rgit_index_content =
         read(temp_dir.path().join(".rgit/index")).expect("Failed to read index file");
 
-    setup_git(&temp_dir)?;
+    setup_git(&temp_dir.path().to_path_buf())?;
 
     let mut git_cmd = get_git_cmd();
     git_cmd
@@ -50,7 +50,7 @@ fn test_add_with_one_file() -> Result<()> {
 #[test]
 fn test_add_with_directory() -> Result<()> {
     let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
-    setup_rgit(&temp_dir)?;
+    setup_rgit(&temp_dir.path().to_path_buf())?;
 
     let dir_path = temp_dir.path().join("dir");
     std::fs::create_dir(&dir_path).expect("Failed to create directory");
@@ -67,7 +67,7 @@ fn test_add_with_directory() -> Result<()> {
     let rgit_index_content =
         read(temp_dir.path().join(".rgit/index")).expect("Failed to read index file");
 
-    setup_git(&temp_dir)?;
+    setup_git(&temp_dir.path().to_path_buf())?;
     let mut git_cmd = get_git_cmd();
     git_cmd
         .current_dir(&temp_dir)
@@ -86,7 +86,7 @@ fn test_add_with_directory() -> Result<()> {
 #[test]
 fn test_add_with_files_and_directories() -> Result<()> {
     let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
-    setup_rgit(&temp_dir)?;
+    setup_rgit(&temp_dir.path().to_path_buf())?;
 
     let file_path = temp_dir.path().join("file_1");
     write(&file_path, "file_1").expect("Failed to write file");
@@ -112,7 +112,7 @@ fn test_add_with_files_and_directories() -> Result<()> {
     let rgit_index_content =
         read(temp_dir.path().join(".rgit/index")).expect("Failed to read index file");
 
-    setup_git(&temp_dir)?;
+    setup_git(&temp_dir.path().to_path_buf())?;
     let mut git_cmd = get_git_cmd();
     git_cmd
         .current_dir(&temp_dir)
@@ -123,6 +123,118 @@ fn test_add_with_files_and_directories() -> Result<()> {
     let git_index_content =
         read(temp_dir.path().join(".git/index")).expect("Failed to read index file");
     assert_eq!(rgit_index_content, git_index_content);
+
+    Ok(())
+}
+
+#[test]
+fn test_add_with_duplicate_entries() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+    setup_rgit(&temp_dir.path().to_path_buf())?;
+
+    let file_path = temp_dir.path().join("file");
+    write(&file_path, "Hello, World!").expect("Failed to write file");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .args(&["file", "file"])
+        .assert()
+        .success();
+    let rgit_index_content =
+        read(temp_dir.path().join(".rgit/index")).expect("Failed to read index file");
+
+    setup_git(&temp_dir.path().to_path_buf())?;
+    let mut git_cmd = get_git_cmd();
+    git_cmd
+        .current_dir(&temp_dir)
+        .arg("add")
+        .args(&["file", "file"])
+        .assert()
+        .success();
+    let git_index_content =
+        read(temp_dir.path().join(".git/index")).expect("Failed to read index file");
+    assert_eq!(rgit_index_content, git_index_content);
+
+    Ok(())
+}
+
+#[test]
+fn test_add_with_same_file_name_and_dir_name() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+    // fs::create_dir("test_rgit").expect("Failed to create temp dir");
+    // let temp_dir = PathBuf::from("test_rgit");
+    setup_rgit(&temp_dir.path().to_path_buf())?;
+    setup_git(&temp_dir.path().to_path_buf())?;
+
+    let file_path = temp_dir.path().join("file");
+    write(&file_path, "Hello, World!").expect("Failed to write file");
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .args(&["file"])
+        .assert()
+        .success();
+
+    let rgit_index_content =
+        read(temp_dir.path().join(".rgit/index")).expect("Failed to read index file");
+
+    let mut cmd = get_git_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .args(&["file"])
+        .assert()
+        .success();
+    let git_index_content =
+        read(temp_dir.path().join(".git/index")).expect("Failed to read index file");
+    assert_eq!(rgit_index_content, git_index_content);
+
+    fs::remove_file(&file_path).expect("Failed to remove file");
+    let dir_path = temp_dir.path().join("file");
+    std::fs::create_dir(&dir_path).expect("Failed to create directory");
+    let file_path = dir_path.join("file");
+    write(&file_path, "Hello, World!").expect("Failed to write file");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .args(&["file"])
+        .assert()
+        .success();
+
+    let mut cmd = get_git_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .args(&["file"])
+        .assert()
+        .success();
+
+    let rgit_index_content =
+        read(temp_dir.path().join(".rgit/index")).expect("Failed to read index file");
+    let git_index_content =
+        read(temp_dir.path().join(".git/index")).expect("Failed to read index file");
+
+    assert_eq!(rgit_index_content, git_index_content);
+
+    Ok(())
+}
+
+#[test]
+fn adding_empty_dirs_should_succeed_without_updating_index() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+    setup_rgit(&temp_dir.path().to_path_buf())?;
+
+    let dir_path = temp_dir.path().join("dir");
+    std::fs::create_dir(&dir_path).expect("Failed to create directory");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("dir")
+        .assert()
+        .success();
+
+    assert_eq!(false, temp_dir.path().join(".rgit/index").exists());
 
     Ok(())
 }
