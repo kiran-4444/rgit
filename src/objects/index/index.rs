@@ -2,7 +2,6 @@ use anyhow::Result;
 use std::cmp::min;
 use std::collections::BTreeMap;
 use std::fs::{File, Metadata};
-use std::io::Write;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::PathBuf;
 
