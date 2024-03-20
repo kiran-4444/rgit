@@ -55,15 +55,10 @@ impl Workspace {
     fn _list_files(&self, vec: &mut Vec<PathBuf>, path: &Path) -> Result<()> {
         if metadata(&path)?.is_dir() {
             let last_component = path.components().last().unwrap();
-            println!(
-                "last_component: {:?}",
-                last_component.as_os_str().to_str().unwrap()
-            );
             if self
                 .ignored_files()?
                 .contains(&last_component.as_os_str().to_str().unwrap().to_string())
             {
-                println!("ignored: {:?}", last_component);
                 return Ok(());
             }
             let paths = fs::read_dir(&path)?;
@@ -74,7 +69,6 @@ impl Workspace {
                 } else {
                     let file_name = self.get_file_name(&full_path)?;
                     if self.ignored_files()?.contains(&file_name) {
-                        println!("ignored: {:?}", file_name);
                         continue;
                     }
                     vec.push(full_path);
