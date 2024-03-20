@@ -37,7 +37,8 @@ pub fn compress_content(content: &str) -> Vec<u8> {
 pub fn get_root_path() -> Result<PathBuf> {
     let current_dir = std::env::current_dir()?;
     if !current_dir.join(".rgit").exists() {
-        anyhow::bail!("Not a rgit repository");
+        // anyhow::bail!("fatal: not a git repository (or any of the parent directories): .rgit");
+        anyhow::bail!("fatal: not a git repository (or any of the parent directories): .rgit");
     }
     Ok(current_dir)
 }

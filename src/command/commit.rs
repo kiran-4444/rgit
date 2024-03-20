@@ -1,13 +1,12 @@
 use anyhow::Result;
 use clap::{arg, Parser};
-use std::{env, path::Path};
+use std::env;
 
 use crate::{
-    command::init::{check_if_git_dir_exists, construct_git_path},
     database::{Author, Commit, Database, Tree},
     index::{Entry, Index},
     refs::Refs,
-    utils::{write_to_stderr, write_to_stdout},
+    utils::{get_root_path, write_to_stdout},
 };
 
 #[derive(Parser, Debug, PartialEq)]
@@ -18,16 +17,8 @@ pub struct CommitCMD {
 
 impl CommitCMD {
     pub fn run(&self) -> Result<()> {
-        match check_if_git_dir_exists(&Path::new("."))? {
-            false => {
-                write_to_stderr(
-                    "fatal: not a git repository (or any of the parent directories): .rgit",
-                )?;
-                std::process::exit(1);
-            }
-            true => (),
-        }
-        let git_path = construct_git_path(&Path::new("."))?;
+        let root_path = get_root_path()?;
+        let git_path = root_path.join(".rgit");
         let refs = Refs::new(git_path.clone());
         let object_store = git_path.join("objects");
         let mut db = Database::new(object_store);
@@ -39,7 +30,9 @@ impl CommitCMD {
         root.traverse(&mut db)?;
         db.store(&mut root)?;
 
-        let (name, email) = self.get_config()?;
+        let (name, email) = self
+            .get_config()
+            .map_err(|_| anyhow::anyhow!("failed to get author details"))?;
         let author = Author::new(&name, &email);
 
         let parent = refs.read_head();
@@ -55,16 +48,8 @@ impl CommitCMD {
         let commit_oid = commit.oid.expect("Failed to get commit oid").clone();
         refs.update_head(&commit_oid)?;
 
-        match parent {
-            Some(_) => {
-                write_to_stdout(&format!("{} {}", commit_oid, commit.message))?;
-                Ok(())
-            }
-            None => {
-                write_to_stdout(&format!("(root-commit) {} {}", commit_oid, commit.message))?;
-                Ok(())
-            }
-        }
+        write_to_stdout(&format!("{} {}", commit_oid, commit.message))?;
+        Ok(())
     }
     /// Get the author name and email from the environment variables
     fn get_config(&self) -> Result<(String, String)> {
