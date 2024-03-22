@@ -21,11 +21,6 @@ impl InitCMD {
     }
 }
 
-pub fn check_if_git_dir_exists(path: &Path) -> Result<bool> {
-    let creation_path = construct_git_path(path)?;
-    Ok(creation_path.exists())
-}
-
 pub fn construct_git_path(path: &Path) -> Result<PathBuf> {
     let curr_dir = env::current_dir()?;
 

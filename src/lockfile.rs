@@ -1,12 +1,13 @@
 use anyhow::{bail, Result};
+use cloneable_file::CloneableFile;
 use std::fs::{rename, OpenOptions};
 use std::path::PathBuf;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Lockfile {
     pub file_path: PathBuf,
     pub lock_file_path: Option<PathBuf>,
-    pub lock: Option<std::fs::File>,
+    pub lock: Option<CloneableFile>,
 }
 
 impl Lockfile {
@@ -19,6 +20,24 @@ impl Lockfile {
         }
     }
 
+    pub fn rollback(&mut self) -> Result<()> {
+        if self.lock.is_none() {
+            bail!("Lock is not held");
+        }
+
+        // We release the lock
+        self.lock = None;
+
+        // We remove the lock file
+        std::fs::remove_file(
+            self.lock_file_path
+                .as_ref()
+                .expect("failed to get lock_file_path ref"),
+        )?;
+        Ok(())
+    }
+
+    /// This function will create a lock file and hold the lock if the lock file does not exist.
     pub fn hold_for_update(&mut self) -> Result<bool> {
         if self.lock.is_none() {
             // If the lock file already exists, we return back false
@@ -28,12 +47,13 @@ impl Lockfile {
                 .expect("failed to get reference")
                 .exists()
             {
+                println!("Lock file already exists");
                 return Ok(false);
             }
 
             // If the lock file does not exist, we create it and hold the lock.
             // If the lock file already exists, we need to error out
-            self.lock = Some(
+            self.lock = Some(CloneableFile::from(
                 OpenOptions::new()
                     .read(true)
                     .write(true)
@@ -44,7 +64,7 @@ impl Lockfile {
                             .as_ref()
                             .expect("failed to get lock_file_path ref"),
                     )?,
-            );
+            ));
             Ok(true)
         } else {
             if !self
@@ -56,6 +76,7 @@ impl Lockfile {
                 bail!("Lockfile is missing, but lock is held");
             }
 
+            println!("Lock file already exists, but lock is held");
             // If the lock file is still there, we still hold the lock
             Ok(false)
         }

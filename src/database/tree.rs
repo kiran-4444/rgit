@@ -1,16 +1,16 @@
 use anyhow::Result;
 use itertools::Itertools;
-use std::{collections::BTreeMap, iter::zip};
+use std::{collections::BTreeMap, fs, iter::zip, os::unix::fs::PermissionsExt};
 
-use crate::{database::Database, objects::storable::Storable, objects::Entry};
+use crate::{database::storable::Storable, database::Database, index::Entry};
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum EntryOrTree {
     Entry(Entry),
     Tree(Tree),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Tree {
     pub oid: Option<String>,
     pub entries: BTreeMap<String, EntryOrTree>,
@@ -51,7 +51,7 @@ impl Tree {
             match entry {
                 EntryOrTree::Entry(entry) => {
                     let basename = entry
-                        .name
+                        .path
                         .split("/")
                         .last()
                         .expect("Failed to split path to get basename")
@@ -76,11 +76,11 @@ impl Tree {
             );
             match result {
                 Some(EntryOrTree::Tree(tree)) => {
-                    tree.add_entry(parents[1..].to_vec(), entry.clone());
+                    tree.add_entry(parents[1..].to_vec(), entry);
                 }
                 _ => {
                     let mut tree = Tree::new();
-                    tree.add_entry(parents[1..].to_vec(), entry.clone());
+                    tree.add_entry(parents[1..].to_vec(), entry);
                     self.entries.insert(
                         parent_basename
                             .last()
@@ -111,8 +111,14 @@ impl Storable for Tree {
             .map(|(name, entry)| match entry {
                 EntryOrTree::Entry(entry) => {
                     let mut output: Vec<&[u8]> = Vec::new();
-
-                    output.push(entry.mode.as_bytes());
+                    let entry_path = entry.path.trim_end_matches('\0');
+                    let stat = fs::metadata(&entry_path).expect("Failed to get file metadata");
+                    let is_executable = stat.permissions().mode() & 0o111 != 0;
+                    if is_executable {
+                        output.push("100755".as_bytes());
+                    } else {
+                        output.push("100644".as_bytes());
+                    };
                     output.push(&[b' ']);
 
                     let entry_name_bytes = name.as_bytes();

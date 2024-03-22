@@ -5,8 +5,8 @@ use std::env;
 
 mod command;
 mod database;
+mod index;
 mod lockfile;
-mod objects;
 mod refs;
 mod utils;
 mod workspace;
