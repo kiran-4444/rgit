@@ -82,7 +82,9 @@ impl Workspace {
     }
 
     pub fn read_file(&self, file_path: &PathBuf) -> Result<Vec<u8>> {
-        Ok(fs::read(file_path)?)
+        let content = fs::read(file_path)
+            .map_err(|e| anyhow!("failed to read file {}: {}", file_path.display(), e))?;
+        Ok(content)
     }
 
     pub fn get_file_stat(&self, file_path: &PathBuf) -> Result<Metadata> {
