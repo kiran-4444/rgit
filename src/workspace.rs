@@ -89,7 +89,7 @@ impl Workspace {
         Ok(fs::metadata(file_path)?)
     }
 
-    pub fn list_files(&self, path: PathBuf) -> Result<Vec<WorkSpaceEntry>> {
+    pub fn list_files(&self, path: &PathBuf) -> Result<Vec<WorkSpaceEntry>> {
         let mut vec = Vec::new();
         self._list_files(&mut vec, &path)?;
         let mut entries = vec

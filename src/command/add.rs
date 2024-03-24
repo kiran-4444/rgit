@@ -38,8 +38,8 @@ impl AddCMD {
     ) -> Result<()> {
         let root_path = get_root_path()?;
         let files = match file {
-            "." => workspace.list_files(root_path)?,
-            _ => workspace.list_files(root_path.join(file))?,
+            "." => workspace.list_files(&root_path)?,
+            _ => workspace.list_files(&root_path.join(file))?,
         };
 
         match index.load_for_update()? {
