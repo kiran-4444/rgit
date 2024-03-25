@@ -3,7 +3,9 @@ use std::collections::BTreeMap;
 use std::fs::{File, Metadata};
 use std::path::PathBuf;
 
-use crate::{index::Checksum, index::Entry, lockfile::Lockfile};
+use crate::{index::Checksum, index::FileEntry, lockfile::Lockfile};
+
+use super::entry::IndexEntry;
 
 static HEADER_SIZE: usize = 12;
 static ENTRY_MIN_SIZE: usize = 64;
@@ -11,7 +13,7 @@ static ENTRY_BLOCK_SIZE: usize = 8;
 
 #[derive(Debug, Clone)]
 pub struct Index {
-    pub entries: BTreeMap<String, Entry>,
+    pub entries: BTreeMap<String, IndexEntry>,
     pub lockfile: Lockfile,
     pub changed: bool,
 }
@@ -27,7 +29,7 @@ impl Index {
         }
     }
 
-    fn discard_conflicts(&mut self, entry: &Entry) {
+    fn discard_conflicts(&mut self, entry: &FileEntry) {
         let mut parents = entry
             .parent_directories()
             .expect("failed to get parent directories");
@@ -47,9 +49,9 @@ impl Index {
             .to_str()
             .expect("failed to convert path to str")
             .to_owned();
-        let entry = Entry::new(name.to_owned(), oid, stat);
+        let entry = FileEntry::new(name.to_owned(), oid, stat);
         self.discard_conflicts(&entry);
-        self.entries.insert(name, entry);
+        self.entries.insert(name, IndexEntry::Entry(entry));
         self.changed = true;
     }
 
@@ -79,8 +81,15 @@ impl Index {
         writer.write(&num_entries)?;
 
         for (_name, entry) in &self.entries {
-            let content = entry.convert();
-            writer.write(&content)?;
+            match entry {
+                IndexEntry::Entry(entry) => {
+                    let content = entry.convert();
+                    writer.write(&content)?;
+                }
+                _ => {
+                    panic!("Invalid entry type");
+                }
+            }
         }
 
         writer.write_checksum()?;
@@ -141,7 +150,7 @@ impl Index {
             let oid = hex::encode(&entry[40..60]);
             let flags = u16::from_be_bytes([entry[60], entry[61]]);
             let path = String::from_utf8(entry[62..].to_vec())?;
-            let entry = Entry {
+            let entry = FileEntry {
                 oid,
                 ctime,
                 ctime_nsec,
@@ -157,7 +166,7 @@ impl Index {
                 path: path.clone(),
             };
             let path = path.trim_end_matches('\0').to_owned();
-            self.entries.insert(path, entry);
+            self.entries.insert(path, IndexEntry::Entry(entry));
         }
 
         Ok(())

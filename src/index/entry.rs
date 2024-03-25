@@ -4,12 +4,18 @@ use std::fs::Metadata;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::PathBuf;
 
+#[derive(Debug, Clone)]
+pub enum IndexEntry {
+    Entry(FileEntry),
+    TreeEntry,
+}
+
 static REGULAR_MODE: u32 = 0o100644;
 static EXECUTABLE_MODE: u32 = 0o100755;
 static MAX_PATH_SIZE: usize = 0xfff;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Entry {
+pub struct FileEntry {
     pub oid: String,
     pub ctime: u32,
     pub ctime_nsec: u32,
@@ -25,7 +31,7 @@ pub struct Entry {
     pub path: String,
 }
 
-impl Entry {
+impl FileEntry {
     pub fn new(name: String, oid: String, stat: Metadata) -> Self {
         let ctime = stat.ctime() as u32;
         let ctime_nsec = stat.ctime_nsec() as u32;
