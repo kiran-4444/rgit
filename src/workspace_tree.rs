@@ -4,7 +4,19 @@ use std::fs::Metadata;
 use std::path::PathBuf;
 use std::{collections::BTreeMap, path::Path};
 
-use crate::workspace::{self, WorkSpaceEntry};
+use crate::workspace::WorkSpaceEntry;
+
+#[derive(Debug, Clone)]
+pub struct File {
+    pub name: String,
+    pub path: PathBuf,
+}
+
+#[derive(Debug, Clone)]
+pub struct Dir {
+    pub name: String,
+    pub children: BTreeMap<String, FileOrDir>,
+}
 
 #[derive(Debug, Clone)]
 pub enum FileOrDir {
@@ -12,19 +24,10 @@ pub enum FileOrDir {
     Dir(Dir),
 }
 
-#[derive(Debug, Clone)]
-pub struct File {
-    pub path: PathBuf,
-    // pub stat: Metadata,
-}
-
 impl FileOrDir {
-    pub fn parent_directories(&self) -> Result<Vec<String>> {
-        let path = match self {
-            FileOrDir::File(file) => &file.path,
-            FileOrDir::Dir(dir) => Path::new(&dir.name),
-        };
-        let components = PathBuf::from(path)
+    pub fn parent_directories(path: &PathBuf) -> Result<Vec<String>> {
+        let mut parents = Vec::new();
+        let components = path
             .components()
             .map(|c| {
                 Ok(c.as_os_str()
@@ -33,14 +36,14 @@ impl FileOrDir {
                     .to_owned())
             })
             .collect::<Result<Vec<_>>>()?;
-        Ok(components)
+        let mut current_path = String::new();
+        for part in components.iter().take(components.len()) {
+            current_path.push_str(part);
+            parents.push(current_path.clone());
+            current_path.push('/');
+        }
+        Ok(parents)
     }
-}
-
-#[derive(Debug, Clone)]
-pub struct Dir {
-    pub name: String,
-    pub children: BTreeMap<String, FileOrDir>,
 }
 
 #[derive(Debug)]
@@ -56,6 +59,7 @@ impl WorkspaceTree {
     ) {
         if parents.len() == 1 {
             let file = FileOrDir::File(File {
+                name: parents[0].clone(),
                 path: PathBuf::from(parents[0].clone()),
             });
             workspace.insert(parents[0].clone(), file);
@@ -86,17 +90,8 @@ impl WorkspaceTree {
     pub fn new(root: Vec<WorkSpaceEntry>) -> Self {
         let mut workspace = BTreeMap::new();
         for entry in root {
-            let parents = entry
-                .name
-                .components()
-                .map(|c| {
-                    c.as_os_str()
-                        .to_str()
-                        .expect("failed to convert path to str")
-                        .to_owned()
-                })
-                .collect::<Vec<_>>();
-
+            let parents = FileOrDir::parent_directories(&entry.name)
+                .expect("failed to get parent directories");
             if parents.len() > 1 {
                 let dir = FileOrDir::Dir(Dir {
                     name: parents[0].clone(),
@@ -105,6 +100,7 @@ impl WorkspaceTree {
                 WorkspaceTree::build(dir, parents, &mut workspace);
             } else {
                 let file = FileOrDir::File(File {
+                    name: entry.name.file_name().unwrap().to_str().unwrap().to_owned(),
                     path: entry.name.clone(),
                 });
                 workspace.insert(
