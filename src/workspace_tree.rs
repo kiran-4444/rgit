@@ -1,8 +1,8 @@
 use anyhow::Result;
 use predicates::path;
-use std::collections::BTreeMap;
 use std::fs::Metadata;
 use std::path::PathBuf;
+use std::{collections::BTreeMap, path::Path};
 
 use crate::workspace::{self, WorkSpaceEntry};
 
@@ -22,7 +22,7 @@ impl FileOrDir {
     pub fn parent_directories(&self) -> Result<Vec<String>> {
         let path = match self {
             FileOrDir::File(file) => &file.path,
-            FileOrDir::Dir(dir) => &dir.path,
+            FileOrDir::Dir(dir) => Path::new(&dir.name),
         };
         let components = PathBuf::from(path)
             .components()
@@ -39,7 +39,7 @@ impl FileOrDir {
 
 #[derive(Debug, Clone)]
 pub struct Dir {
-    pub path: PathBuf,
+    pub name: String,
     pub children: BTreeMap<String, FileOrDir>,
 }
 
@@ -54,56 +54,70 @@ impl WorkspaceTree {
         parents: Vec<String>,
         workspace: &mut BTreeMap<String, FileOrDir>,
     ) {
-        if parents.len() > 1 {
-            dbg!(parents.clone());
-            let mut child = BTreeMap::new();
-            WorkspaceTree::build(entry.clone(), parents[1..].to_vec(), &mut child);
-            match entry {
-                FileOrDir::File(file) => {
-                    let file_or_dir = FileOrDir::Dir(Dir {
-                        path: file.path.to_owned(),
-                        children: child.clone(),
-                    });
-                    let check_key = workspace.get_mut(&parents[0]);
+        if parents.len() == 1 {
+            let file = FileOrDir::File(File {
+                path: PathBuf::from(parents[0].clone()),
+            });
+            workspace.insert(parents[0].clone(), file);
+            return;
+        }
 
-                    match check_key {
-                        Some(FileOrDir::Dir(dir)) => {
-                            dir.children.insert(parents[0].clone(), file_or_dir);
-                        }
-                        _ => {
-                            let dir = FileOrDir::Dir(Dir {
-                                path: PathBuf::from(&parents[0]),
-                                children: child.clone(),
-                            });
-                            workspace.insert(parents[0].clone(), dir);
-                        }
-                    }
-                }
-                _ => panic!("Invalid entry type"),
+        let parent = parents[0].clone();
+        let mut parents = parents;
+        parents.remove(0);
+        let dir = FileOrDir::Dir(Dir {
+            name: parent.clone(),
+            children: BTreeMap::new(),
+        });
+
+        if !workspace.contains_key(&parent) {
+            workspace.insert(parent.clone(), dir);
+        }
+
+        let parent_dir = workspace.get_mut(&parent).unwrap();
+        match parent_dir {
+            FileOrDir::Dir(dir) => {
+                WorkspaceTree::build(entry, parents, &mut dir.children);
             }
-        } else {
-            match entry {
-                FileOrDir::File(file) => {
-                    let file_or_dir = FileOrDir::File(File {
-                        path: file.path.to_owned(),
-                        // stat: file.stat,
-                    });
-                    workspace.insert(file.path.to_str().unwrap().to_owned(), file_or_dir);
-                }
-                _ => panic!("Invalid entry type"),
-            }
+            _ => (),
         }
     }
 
     pub fn new(root: Vec<WorkSpaceEntry>) -> Self {
         let mut workspace = BTreeMap::new();
         for entry in root {
-            let entry = FileOrDir::File(File {
-                path: entry.name.clone(),
-                // stat: entry.name.metadata().unwrap(),
-            });
-            let parents = entry.parent_directories().unwrap();
-            WorkspaceTree::build(entry, parents, &mut workspace);
+            let parents = entry
+                .name
+                .components()
+                .map(|c| {
+                    c.as_os_str()
+                        .to_str()
+                        .expect("failed to convert path to str")
+                        .to_owned()
+                })
+                .collect::<Vec<_>>();
+
+            if parents.len() > 1 {
+                let dir = FileOrDir::Dir(Dir {
+                    name: parents[0].clone(),
+                    children: BTreeMap::new(),
+                });
+                WorkspaceTree::build(dir, parents, &mut workspace);
+            } else {
+                let file = FileOrDir::File(File {
+                    path: entry.name.clone(),
+                });
+                workspace.insert(
+                    entry
+                        .name
+                        .file_name()
+                        .expect("failed to get file name")
+                        .to_str()
+                        .expect("failed to convert path to str")
+                        .to_owned(),
+                    file,
+                );
+            }
         }
         WorkspaceTree { workspace }
     }
