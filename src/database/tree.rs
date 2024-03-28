@@ -2,11 +2,14 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::{collections::BTreeMap, fs, iter::zip, os::unix::fs::PermissionsExt};
 
-use crate::{database::storable::Storable, database::Database, index::Entry};
+use crate::{
+    database::{storable::Storable, Database},
+    index::{FileEntry, IndexEntry},
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum EntryOrTree {
-    Entry(Entry),
+    Entry(FileEntry),
     Tree(Tree),
 }
 
@@ -24,10 +27,17 @@ impl Tree {
         }
     }
 
-    pub fn build(entries: Vec<Entry>) -> Result<Tree> {
+    pub fn build(entries: Vec<IndexEntry>) -> Result<Tree> {
         let mut root = Tree::new();
         for entry in entries {
-            root.add_entry(entry.parent_directories()?, EntryOrTree::Entry(entry));
+            match entry {
+                IndexEntry::Entry(entry) => {
+                    root.add_entry(entry.parent_directories()?, EntryOrTree::Entry(entry));
+                }
+                _ => {
+                    panic!("Invalid entry type");
+                }
+            }
         }
         Ok(root)
     }
