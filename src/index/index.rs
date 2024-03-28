@@ -33,13 +33,22 @@ impl Index {
         let mut parents = entry
             .parent_directories()
             .expect("failed to get parent directories");
-        parents.reverse();
+
+        if parents.is_empty() {
+            parents.push(entry.path.clone());
+        }
 
         for parent in parents {
             let parent = parent.trim_end_matches('\0').to_owned();
-
-            if self.entries.contains_key(&parent) {
-                self.entries.remove(&parent);
+            for (name, entry) in self.entries.clone() {
+                match entry {
+                    IndexEntry::Entry(entry) => {
+                        if entry.path.starts_with(&parent) {
+                            self.entries.remove(&name);
+                        }
+                    }
+                    _ => {}
+                }
             }
         }
     }

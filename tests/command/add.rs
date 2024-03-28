@@ -240,7 +240,7 @@ fn adding_empty_dirs_should_succeed_without_updating_index() -> Result<()> {
 }
 
 #[test]
-fn adding_file_with_dirname_should_fail() -> Result<()> {
+fn adding_file_with_dirname_should_pass() -> Result<()> {
     let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
     setup_rgit(&temp_dir.path().to_path_buf())?;
     setup_git(&temp_dir.path().to_path_buf())?;
@@ -293,7 +293,7 @@ fn adding_file_with_dirname_should_fail() -> Result<()> {
     let git_index_content =
         read(temp_dir.path().join(".git/index")).expect("Failed to read index file");
 
-    assert_ne!(rgit_index_content, git_index_content);
+    assert_eq!(rgit_index_content, git_index_content);
 
     Ok(())
 }
