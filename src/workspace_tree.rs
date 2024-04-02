@@ -1,8 +1,7 @@
 use anyhow::Result;
-use predicates::path;
-use std::fs::Metadata;
+
+use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::{collections::BTreeMap, path::Path};
 
 use crate::workspace::WorkSpaceEntry;
 

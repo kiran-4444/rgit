@@ -4,7 +4,7 @@ use std::env;
 
 use crate::{
     database::{Author, Commit, Database, Tree},
-    index::{FileEntry, Index, IndexEntry},
+    index::{Index, IndexEntry},
     refs::Refs,
     utils::{get_root_path, write_to_stdout},
 };
