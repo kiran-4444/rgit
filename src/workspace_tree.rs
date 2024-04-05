@@ -24,6 +24,14 @@ pub enum FileOrDir {
 }
 
 impl FileOrDir {
+    /// Get the parent directories of a file or directory.
+    /// # Example:
+    /// ```rust
+    /// use std::path::PathBuf;
+    /// use rgit::workspace_tree::FileOrDir;
+    /// let path = PathBuf::from("foo/bar/baz");
+    /// let parents = FileOrDir::parent_directories(&path).unwrap();
+    /// assert_eq!(parents, vec!["foo", "foo/bar", "foo/bar/baz"]);
     pub fn parent_directories(path: &PathBuf) -> Result<Vec<String>> {
         let mut parents = Vec::new();
         let components = path
@@ -91,6 +99,7 @@ impl WorkspaceTree {
         for entry in root {
             let parents = FileOrDir::parent_directories(&entry.name)
                 .expect("failed to get parent directories");
+            dbg!(&parents);
             if parents.len() > 1 {
                 let dir = FileOrDir::Dir(Dir {
                     name: parents[0].clone(),
