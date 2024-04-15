@@ -1,12 +1,8 @@
-macro_rules! test {
-    ($i:ident, $x:expr) => {
-        $i = $x + 1;
-    };
-}
+use r_git::workspace_tree::FileOrDir;
+use std::path::PathBuf;
 
 fn main() {
-    println!("Hello, world");
-    let mut x = 5;
-    test!(x, 10);
-    println!("x = {}", x);
+    let path = PathBuf::from("foo/bar/baz");
+    let parents = FileOrDir::parent_directories(&path).unwrap();
+    println!("{:?}", parents);
 }

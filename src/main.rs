@@ -10,6 +10,7 @@ mod lockfile;
 mod refs;
 mod utils;
 mod workspace;
+mod workspace_tree;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 

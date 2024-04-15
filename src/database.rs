@@ -10,5 +10,5 @@ pub use self::blob::Blob;
 pub use self::commit::Commit;
 pub use self::database::Database;
 pub use self::storable::Storable;
-pub use self::tree::EntryOrTree;
+
 pub use self::tree::Tree;
