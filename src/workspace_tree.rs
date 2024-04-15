@@ -28,7 +28,7 @@ impl FileOrDir {
     /// # Example:
     /// ```rust
     /// use std::path::PathBuf;
-    /// use rgit::workspace_tree::FileOrDir;
+    /// use r_git::workspace_tree::FileOrDir;
     /// let path = PathBuf::from("foo/bar/baz");
     /// let parents = FileOrDir::parent_directories(&path).unwrap();
     /// assert_eq!(parents, vec!["foo", "foo/bar", "foo/bar/baz"]);
