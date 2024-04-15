@@ -1,8 +1,20 @@
-use r_git::workspace_tree::FileOrDir;
 use std::path::PathBuf;
 
+use walkdir::WalkDir;
+
 fn main() {
-    let path = PathBuf::from("foo/bar/baz");
-    let parents = FileOrDir::parent_directories(&path).unwrap();
-    println!("{:?}", parents);
+    let files = WalkDir::new(".")
+        .into_iter()
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| {
+            entry
+                .file_type()
+                .is_file()
+                .then(|| entry.path().to_path_buf())
+        })
+        .collect::<Vec<PathBuf>>();
+
+    for file in files {
+        println!("{:?}", file);
+    }
 }

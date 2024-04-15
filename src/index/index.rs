@@ -84,7 +84,7 @@ impl Index {
             .expect("failed to convert path to str")
             .to_owned();
         let entry = FileEntry::new(name.to_owned(), oid, stat);
-        self.discard_conflicts(&entry);
+        // self.discard_conflicts(&entry);
         self.entries.insert(name, IndexEntry::Entry(entry));
         self.changed = true;
     }
