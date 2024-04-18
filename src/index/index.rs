@@ -39,11 +39,12 @@ static MAX_PATH_SIZE: usize = 0xfff;
 impl Stat {
     pub fn new(path: &PathBuf) -> Self {
         let stat = path.metadata().expect("failed to get metadata");
-        let name = path
-            .file_name()
-            .expect("failed to get file name")
-            .to_str()
-            .unwrap();
+        let stripped_path = path.strip_prefix(&std::env::current_dir().unwrap());
+        let stripped_path = match stripped_path {
+            Ok(path) => path,
+            Err(_) => path,
+        };
+
         Self {
             ino: stat.ino() as u32,
             size: stat.size() as u32,
@@ -59,9 +60,9 @@ impl Stat {
             ctime_nsec: stat.ctime_nsec() as u32,
             mtime_nsec: stat.mtime_nsec() as u32,
             dev: stat.dev() as u32,
-            flags: min(MAX_PATH_SIZE, name.len()) as u16,
+            flags: min(MAX_PATH_SIZE, stripped_path.to_str().unwrap().len()) as u16,
             oid: None,
-            path: path.clone(),
+            path: stripped_path.to_path_buf().clone(),
         }
     }
 
@@ -177,13 +178,13 @@ impl Index {
         let version = 2u32.to_be_bytes().to_vec();
         writer.write(&version)?;
 
-        // pad the number of entries to 4 bytes
-        let num_entries = self.entries.workspace.len() as u32;
-        let num_entries = num_entries.to_be_bytes().to_vec();
-        writer.write(&num_entries)?;
-
         let mut result = BTreeMap::new();
         Index::flatten_entries(&self.entries.workspace, &mut result);
+
+        // pad the number of entries to 4 bytes
+        let num_entries = result.len() as u32;
+        let num_entries = num_entries.to_be_bytes().to_vec();
+        writer.write(&num_entries)?;
 
         for (_name, entry) in &result {
             let ctime = entry.stat.ctime;
@@ -198,7 +199,7 @@ impl Index {
             let file_size = entry.stat.size;
             let oid = hex::decode(entry.oid.as_ref().expect("failed to get oid"))
                 .expect("failed to decode oid");
-            let flags = 0u16.to_be_bytes().to_vec();
+            let flags = entry.stat.flags;
             let path = entry.name.as_bytes().to_vec();
 
             let mut entry = vec![];
@@ -213,7 +214,7 @@ impl Index {
             entry.extend(gid.to_be_bytes().to_vec());
             entry.extend(file_size.to_be_bytes().to_vec());
             entry.extend(oid);
-            entry.extend(flags);
+            entry.extend(flags.to_be_bytes().to_vec());
             entry.extend(path);
 
             if entry.len() % 8 == 0 && entry[entry.len() - 1] == 0 {
@@ -224,6 +225,7 @@ impl Index {
                 entry.extend(&padding);
                 writer.write(&entry)?;
             }
+            println!("{:?}", entry);
         }
 
         writer.write_checksum()?;

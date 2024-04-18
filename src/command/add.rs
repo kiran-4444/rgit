@@ -51,8 +51,6 @@ impl AddCMD {
                     let mut blob = Blob::new(data.to_owned());
                     database.store(&mut blob)?;
                     let oid = blob.oid.expect("failed to get oid");
-                    let current_dir = std::env::current_dir().expect("failed to get current path");
-                    dbg!(current_dir.join(&entry.path));
                     dbg!(oid.clone());
                     index.add(&entry, oid);
                 }
