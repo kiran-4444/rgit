@@ -1,11 +1,14 @@
+use std::{path::PathBuf, str::FromStr};
+
 use anyhow::Result;
 use clap::Parser;
+use sha1::digest::consts::True;
 
 use crate::{
     database::{Blob, Database},
     index::Index,
     utils::get_root_path,
-    workspace::WorkspaceTree,
+    workspace::{Addable, WorkspaceTree},
 };
 
 #[derive(Parser, Debug, PartialEq)]
@@ -19,20 +22,21 @@ impl AddCMD {
         let current_dir = get_root_path()?;
         let git_path = current_dir.join(".rgit");
 
-        let workspace = WorkspaceTree::new(&current_dir);
+        let mut workspace = WorkspaceTree::new(Some(&current_dir));
         let database = Database::new(git_path.join("objects"));
         let mut index = Index::new(git_path.join("index"));
 
         for file in &self.files {
-            self.add_file(&file, &workspace, &database, &mut index)?;
+            self.add_file(&file, &mut workspace, &database, &mut index)?;
         }
+
         Ok(())
     }
 
     fn add_file(
         &self,
         file: &str,
-        workspace: &WorkspaceTree,
+        workspace: &mut WorkspaceTree,
         database: &Database,
         index: &mut Index,
     ) -> Result<()> {
@@ -42,18 +46,25 @@ impl AddCMD {
             _ => WorkspaceTree::list_files(&root_path.join(file)),
         };
 
-        dbg!(&files);
+        // let mut new_workspace = WorkspaceTree::new(None);
+        // dbg!(&files);
+        // for file in files {
+        //     let current_dir = std::env::current_dir().expect("failed to get current path");
+        //     println!("Adding: {:?}", file.path);
+        //     new_workspace.add(&current_dir.join(file.path));
+        // }
 
         match index.load_for_update()? {
             true => {
                 for entry in &files {
-                    let stat = workspace.get_file_stat(&entry.path)?;
                     let raw_data = workspace.read_file(&entry.path)?;
                     let data = unsafe { std::str::from_utf8_unchecked(&raw_data) };
                     let mut blob = Blob::new(data.to_owned());
                     database.store(&mut blob)?;
                     let oid = blob.oid.expect("failed to get oid");
-                    index.add(&entry.path, oid, stat);
+
+                    let current_dir = std::env::current_dir().expect("failed to get current path");
+                    index.add(&current_dir.join(&entry.path), oid);
                 }
                 // should not worry about adding empty directories
                 if files.len() > 0 {
@@ -65,7 +76,7 @@ impl AddCMD {
             }
         }
 
-        dbg!(&index.entries);
+        dbg!(&index.entries.workspace);
 
         Ok(())
     }

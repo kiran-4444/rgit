@@ -7,11 +7,41 @@ use std::path::PathBuf;
 
 use crate::utils::get_root_path;
 
+pub trait Addable {
+    fn add(&mut self, path: &PathBuf, oid: String);
+}
+
+impl Addable for WorkspaceTree {
+    fn add(&mut self, path: &PathBuf, oid: String) {
+        let files = WorkspaceTree::list_files(path);
+        for file in files {
+            let parents = FileOrDir::parent_directories(&file.path)
+                .expect("failed to get parent directories");
+            if parents.len() > 1 {
+                let dir_entry = FileOrDir::Dir(Dir {
+                    name: parents[0].clone(),
+                    children: BTreeMap::new(),
+                });
+                WorkspaceTree::build(dir_entry, parents, &mut self.workspace);
+            } else {
+                let file_entry = FileOrDir::File(File {
+                    name: file.name.clone(),
+                    path: file.path.clone(),
+                    stat: file.stat.clone(),
+                    oid: Some(oid.clone()),
+                });
+                self.workspace.insert(file.name.clone(), file_entry);
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct File {
     pub name: String,
     pub path: PathBuf,
     pub stat: Metadata,
+    pub oid: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +86,7 @@ impl FileOrDir {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WorkspaceTree {
     pub workspace: BTreeMap<String, FileOrDir>,
 }
@@ -71,7 +101,8 @@ impl WorkspaceTree {
             let file = FileOrDir::File(File {
                 name: parents[0].clone(),
                 path: PathBuf::from(parents[0].clone()),
-                stat: fs::metadata(parents[0].clone()).expect("failed to get metadata"),
+                stat: fs::metadata(&parents[0]).expect("failed to get metadata"),
+                oid: None,
             });
             workspace.insert(parents[0].clone(), file);
             return;
@@ -126,7 +157,6 @@ impl WorkspaceTree {
 
     pub fn list_files(path: &PathBuf) -> Vec<File> {
         let ignored_files = WorkspaceTree::ignored_files().expect("failed to get ignored files");
-        dbg!(&ignored_files);
         WalkDir::new(path)
             .into_iter()
             .filter_map(|entry| entry.ok())
@@ -154,34 +184,43 @@ impl WorkspaceTree {
                     path: entry
                         .path()
                         .strip_prefix(&std::env::current_dir().unwrap())
-                        .unwrap()
+                        .expect("failed to strip prefix")
                         .to_path_buf(),
-                    stat: entry.metadata().unwrap(),
+                    stat: entry.metadata().expect("failed to get metadata"),
+                    oid: None,
                 })
             })
             .collect::<Vec<File>>()
     }
-    pub fn new(root: &PathBuf) -> Self {
-        let files = WorkspaceTree::list_files(root);
-        let mut workspace = BTreeMap::new();
-        for file in files {
-            let parents = FileOrDir::parent_directories(&file.path)
-                .expect("failed to get parent directories");
-            if parents.len() > 1 {
-                let dir_entry = FileOrDir::Dir(Dir {
-                    name: parents[0].clone(),
-                    children: BTreeMap::new(),
-                });
-                WorkspaceTree::build(dir_entry, parents, &mut workspace);
-            } else {
-                let file_entry = FileOrDir::File(File {
-                    name: file.name.clone(),
-                    path: file.path.clone(),
-                    stat: file.stat.clone(),
-                });
-                workspace.insert(file.name.clone(), file_entry);
+    pub fn new(root: Option<&PathBuf>) -> Self {
+        match root {
+            Some(root) => {
+                let files = WorkspaceTree::list_files(root);
+                let mut workspace = BTreeMap::new();
+                for file in files {
+                    let parents = FileOrDir::parent_directories(&file.path)
+                        .expect("failed to get parent directories");
+                    if parents.len() > 1 {
+                        let dir_entry = FileOrDir::Dir(Dir {
+                            name: parents[0].clone(),
+                            children: BTreeMap::new(),
+                        });
+                        WorkspaceTree::build(dir_entry, parents, &mut workspace);
+                    } else {
+                        let file_entry = FileOrDir::File(File {
+                            name: file.name.clone(),
+                            path: file.path.clone(),
+                            stat: file.stat.clone(),
+                            oid: None,
+                        });
+                        workspace.insert(file.name.clone(), file_entry);
+                    }
+                }
+                WorkspaceTree { workspace }
             }
+            None => WorkspaceTree {
+                workspace: BTreeMap::new(),
+            },
         }
-        WorkspaceTree { workspace }
     }
 }

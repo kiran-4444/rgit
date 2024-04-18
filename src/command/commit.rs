@@ -7,6 +7,7 @@ use crate::{
     index::{Index, IndexEntry},
     refs::Refs,
     utils::{get_root_path, write_to_stdout},
+    workspace::FileOrDir,
 };
 
 #[derive(Parser, Debug, PartialEq)]
@@ -17,42 +18,49 @@ pub struct CommitCMD {
 
 impl CommitCMD {
     pub fn run(&self) -> Result<()> {
-        let root_path = get_root_path()?;
-        let git_path = root_path.join(".rgit");
-        let refs = Refs::new(git_path.clone());
-        let object_store = git_path.join("objects");
-        let mut db = Database::new(object_store);
-        let mut index = Index::new(git_path.join("index"));
+        todo!()
+        //     let root_path = get_root_path()?;
+        //     let git_path = root_path.join(".rgit");
+        //     let refs = Refs::new(git_path.clone());
+        //     let object_store = git_path.join("objects");
+        //     let mut db = Database::new(object_store);
+        //     let mut index = Index::new(git_path.join("index"));
 
-        index.load()?;
-        let entries = index.entries.values().cloned().collect::<Vec<IndexEntry>>();
-        let mut root = Tree::build(entries.clone())?;
-        root.traverse(&mut db)?;
+        //     index.load()?;
 
-        db.store(&mut root)?;
+        //     let entries = index
+        //         .entries
+        //         .workspace
+        //         .values()
+        //         .cloned()
+        //         .collect::<Vec<FileOrDir>>();
+        //     let mut root = Tree::build(entries.clone())?;
+        //     root.traverse(&mut db)?;
 
-        let (name, email) = self
-            .get_config()
-            .map_err(|_| anyhow::anyhow!("failed to get author details"))?;
-        let author = Author::new(&name, &email);
+        //     db.store(&mut root)?;
 
-        let parent = refs.read_head();
-        let message = self.message.clone();
-        let mut commit = Commit::new(
-            parent.to_owned(),
-            root.oid.expect("OID not found"),
-            author,
-            &message,
-        );
-        db.store(&mut commit)?;
+        //     let (name, email) = self
+        //         .get_config()
+        //         .map_err(|_| anyhow::anyhow!("failed to get author details"))?;
+        //     let author = Author::new(&name, &email);
 
-        // update the index to store the tree cache
+        //     let parent = refs.read_head();
+        //     let message = self.message.clone();
+        //     let mut commit = Commit::new(
+        //         parent.to_owned(),
+        //         root.oid.expect("OID not found"),
+        //         author,
+        //         &message,
+        //     );
+        //     db.store(&mut commit)?;
 
-        let commit_oid = commit.oid.expect("Failed to get commit oid").clone();
-        refs.update_head(&commit_oid)?;
+        //     // update the index to store the tree cache
 
-        write_to_stdout(&format!("{} {}", commit_oid, commit.message))?;
-        Ok(())
+        //     let commit_oid = commit.oid.expect("Failed to get commit oid").clone();
+        //     refs.update_head(&commit_oid)?;
+
+        //     write_to_stdout(&format!("{} {}", commit_oid, commit.message))?;
+        //     Ok(())
     }
     /// Get the author name and email from the environment variables
     fn get_config(&self) -> Result<(String, String)> {

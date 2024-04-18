@@ -1,19 +1,55 @@
 use anyhow::Result;
 use std::collections::BTreeMap;
 use std::fs::{File, Metadata};
+use std::os::unix::fs::MetadataExt;
 use std::path::PathBuf;
 
-use crate::{index::Checksum, index::FileEntry, lockfile::Lockfile};
-
-use super::entry::IndexEntry;
+use crate::workspace::{Addable, File as MyFile, FileOrDir};
+use crate::{index::Checksum, lockfile::Lockfile, workspace::WorkspaceTree};
 
 static HEADER_SIZE: usize = 12;
 static ENTRY_MIN_SIZE: usize = 64;
 static ENTRY_BLOCK_SIZE: usize = 8;
 
+trait FromRaw {
+    fn from_raw_parts(
+        ino: u32,
+        size: u32,
+        mode: u16,
+        uid: u32,
+        gid: u32,
+        ctime: u32,
+        mtime: u32,
+        ctime_nsec: u32,
+        mtime_nsec: u32,
+        dev: u32,
+        flags: u16,
+    ) -> Self;
+}
+
+impl FromRaw for Metadata {
+    fn from_raw_parts(
+        ino: u32,
+        size: u32,
+        mode: u16,
+        uid: u32,
+        gid: u32,
+        ctime: u32,
+        mtime: u32,
+        ctime_nsec: u32,
+        mtime_nsec: u32,
+        dev: u32,
+        flags: u16,
+    ) -> Self {
+        Metadata::from_raw_parts(
+            ino, size, mode, uid, gid, ctime, mtime, ctime_nsec, mtime_nsec, dev, flags,
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Index {
-    pub entries: BTreeMap<String, IndexEntry>,
+    pub entries: WorkspaceTree,
     pub lockfile: Lockfile,
     pub changed: bool,
 }
@@ -21,7 +57,7 @@ pub struct Index {
 impl Index {
     pub fn new(path: PathBuf) -> Self {
         let lockfile = Lockfile::new(path);
-        let entries = BTreeMap::new();
+        let entries = WorkspaceTree::new(None);
         Self {
             entries,
             lockfile,
@@ -29,14 +65,8 @@ impl Index {
         }
     }
 
-    pub fn add(&mut self, path: &PathBuf, oid: String, stat: Metadata) {
-        let name = path
-            .to_str()
-            .expect("failed to convert path to str")
-            .to_owned();
-        let entry = FileEntry::new(path, oid, stat);
-        // self.discard_conflicts(&entry);
-        self.entries.insert(name, IndexEntry::Entry(entry));
+    pub fn add(&mut self, path: &PathBuf, oid: String) {
+        self.entries.add(path, oid);
         self.changed = true;
     }
 
@@ -61,19 +91,46 @@ impl Index {
         writer.write(&version)?;
 
         // pad the number of entries to 4 bytes
-        let num_entries = self.entries.len() as u32;
+        let num_entries = self.entries.workspace.len() as u32;
         let num_entries = num_entries.to_be_bytes().to_vec();
         writer.write(&num_entries)?;
 
-        for (_name, entry) in &self.entries {
+        for (_name, entry) in &self.entries.workspace {
             match entry {
-                IndexEntry::Entry(entry) => {
-                    let content = entry.convert();
-                    writer.write(&content)?;
+                FileOrDir::File(file) => {
+                    let ctime = file.stat.ctime();
+                    let ctime_nsec = file.stat.ctime_nsec();
+                    let mtime = file.stat.mtime();
+                    let mtime_nsec = file.stat.mtime_nsec();
+                    let dev = file.stat.dev();
+                    let ino = file.stat.ino();
+                    let mode = file.stat.mode();
+                    let uid = file.stat.uid();
+                    let gid = file.stat.gid();
+                    let file_size = file.stat.size();
+                    let oid = hex::decode(file.oid.as_ref().expect("failed to get oid"))
+                        .expect("failed to decode oid");
+                    let flags = 0u16.to_be_bytes().to_vec();
+                    let path = file.name.as_bytes().to_vec();
+
+                    let mut entry = vec![];
+                    entry.extend(ctime.to_be_bytes().to_vec());
+                    entry.extend(ctime_nsec.to_be_bytes().to_vec());
+                    entry.extend(mtime.to_be_bytes().to_vec());
+                    entry.extend(mtime_nsec.to_be_bytes().to_vec());
+                    entry.extend(dev.to_be_bytes().to_vec());
+                    entry.extend(ino.to_be_bytes().to_vec());
+                    entry.extend(mode.to_be_bytes().to_vec());
+                    entry.extend(uid.to_be_bytes().to_vec());
+                    entry.extend(gid.to_be_bytes().to_vec());
+                    entry.extend(file_size.to_be_bytes().to_vec());
+                    entry.extend(oid);
+                    entry.extend(flags);
+                    entry.extend(path);
+
+                    writer.write(&entry)?;
                 }
-                _ => {
-                    panic!("Invalid entry type");
-                }
+                _ => (),
             }
         }
 
@@ -84,7 +141,7 @@ impl Index {
     }
 
     fn clear(&mut self) {
-        self.entries.clear();
+        self.entries.workspace.clear();
         self.changed = false;
     }
 
@@ -114,6 +171,7 @@ impl Index {
     fn read_entries(&mut self, reader: &mut Checksum, count: u32) -> Result<()> {
         for _ in 0..count {
             let mut entry = reader.read(ENTRY_MIN_SIZE)?;
+            dbg!("reading entry");
             loop {
                 if entry[entry.len() - 1] == 0 as u8 {
                     break;
@@ -135,24 +193,32 @@ impl Index {
             let oid = hex::encode(&entry[40..60]);
             let flags = u16::from_be_bytes([entry[60], entry[61]]);
             let path = String::from_utf8(entry[62..].to_vec())?;
-            let entry = FileEntry {
-                oid,
-                ctime,
-                ctime_nsec,
-                mtime,
-                mtime_nsec,
-                dev,
-                ino,
-                mode,
-                uid,
-                gid,
-                file_size,
-                flags,
-                path: PathBuf::from(path.clone()),
-            };
+
             let path = path.trim_end_matches('\0').to_owned();
-            self.entries.insert(path, IndexEntry::Entry(entry));
+            self.entries.workspace.insert(
+                path.clone(),
+                FileOrDir::File(MyFile {
+                    name: path.clone(),
+                    stat: Metadata::from_raw_parts(
+                        ino,
+                        file_size,
+                        mode as u16,
+                        uid,
+                        gid,
+                        ctime,
+                        mtime,
+                        ctime_nsec,
+                        mtime_nsec,
+                        dev,
+                        flags,
+                    ),
+                    path: PathBuf::from(path),
+                    oid: Some(oid),
+                }),
+            );
         }
+
+        dbg!(self.entries.workspace.clone());
 
         Ok(())
     }
@@ -165,15 +231,19 @@ impl Index {
         }
         let mut file = file.expect("failed to get file content");
         let mut reader = Checksum::new(&mut file);
+        dbg!("loading header");
         let count = self.read_header(&mut reader)?;
+        dbg!("loading entries");
         self.read_entries(&mut reader, count)?;
         reader.verify_checksum()?;
         Ok(())
     }
 
     pub fn load_for_update(&mut self) -> Result<bool> {
+        dbg!("Loading index for update");
         if self.lockfile.hold_for_update()? {
             self.load()?;
+            dbg!(&self.entries.workspace);
             return Ok(true);
         }
         Ok(false)
