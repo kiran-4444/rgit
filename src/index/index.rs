@@ -29,61 +29,12 @@ impl Index {
         }
     }
 
-    /// Discard any entries that conflict with the given entry.
-    /// This is used to handle cases where a file is being added to the index and a directory
-    /// with the same name exists in the index or vice versa.
-    /// # Example:
-    /// ```bash
-    /// git add foo.txt/bar
-    /// rm -rf foo.txt
-    /// git add foo.txt
-    /// ```
-    /// In this case, the directory foo.txt is removed and a file with the same name is added.
-    /// The directory foo.txt should be removed from the index.
-    /// ```bash
-    /// git add foo.txt
-    /// rm foo.txt
-    /// mkdir foo.txt
-    /// touch foo.txt/bar
-    /// git add foo.txt
-    /// ```
-    /// In this case, the file foo.txt is removed and a directory with the same name is created.
-    /// The file foo.txt should be removed from the index.
-    fn discard_conflicts(&mut self, entry: &FileEntry) {
-        let mut parents = entry
-            .parent_directories()
-            .expect("failed to get parent directories");
-
-        // if the entry is a file, we need to add this file to the parents
-        // handles the case where a directory with the same name as the file exists in the index
-        // and the file is being added to the index as well
-        if parents.is_empty() {
-            parents.push(entry.path.clone());
-        }
-
-        for parent in parents {
-            let parent = parent.trim_end_matches('\0').to_owned();
-            for (name, entry) in self.entries.clone() {
-                match entry {
-                    // if the entry is a file and the path starts with the parent directory
-                    // remove the entry from the index
-                    IndexEntry::Entry(entry) => {
-                        if entry.path.starts_with(&parent) {
-                            self.entries.remove(&name);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
     pub fn add(&mut self, path: &PathBuf, oid: String, stat: Metadata) {
         let name = path
             .to_str()
             .expect("failed to convert path to str")
             .to_owned();
-        let entry = FileEntry::new(name.to_owned(), oid, stat);
+        let entry = FileEntry::new(path, oid, stat);
         // self.discard_conflicts(&entry);
         self.entries.insert(name, IndexEntry::Entry(entry));
         self.changed = true;
@@ -197,7 +148,7 @@ impl Index {
                 gid,
                 file_size,
                 flags,
-                path: path.clone(),
+                path: PathBuf::from(path.clone()),
             };
             let path = path.trim_end_matches('\0').to_owned();
             self.entries.insert(path, IndexEntry::Entry(entry));

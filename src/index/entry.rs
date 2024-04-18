@@ -28,11 +28,11 @@ pub struct FileEntry {
     pub gid: u32,
     pub file_size: u32,
     pub flags: u16,
-    pub path: String,
+    pub path: PathBuf,
 }
 
 impl FileEntry {
-    pub fn new(name: String, oid: String, stat: Metadata) -> Self {
+    pub fn new(name: &PathBuf, oid: String, stat: Metadata) -> Self {
         let ctime = stat.ctime() as u32;
         let ctime_nsec = stat.ctime_nsec() as u32;
         let mtime = stat.mtime() as u32;
@@ -48,7 +48,13 @@ impl FileEntry {
         let uid = stat.uid() as u32;
         let gid = stat.gid() as u32;
         let file_size = stat.len() as u32;
-        let flags = min(MAX_PATH_SIZE, name.len()) as u16;
+        let flags = min(
+            MAX_PATH_SIZE,
+            name.as_os_str()
+                .to_str()
+                .expect("failed to convert path to str")
+                .len(),
+        ) as u16;
         let path = name.clone();
         Self {
             oid,
@@ -82,7 +88,13 @@ impl FileEntry {
         let decoded_hex = hex::decode(self.oid.clone()).expect("failed to decode hex");
         data.extend(decoded_hex);
         data.extend(self.flags.to_be_bytes());
-        data.extend(self.path.as_bytes());
+        data.extend(
+            self.path
+                .as_os_str()
+                .to_str()
+                .expect("failed to covert path to str")
+                .as_bytes(),
+        );
         if data.len() % 8 == 0 && data[data.len() - 1] == 0 {
             return data;
         }

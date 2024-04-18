@@ -65,6 +65,8 @@ impl AddCMD {
             }
         }
 
+        dbg!(&index.entries);
+
         Ok(())
     }
 }

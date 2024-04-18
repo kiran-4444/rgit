@@ -11,6 +11,7 @@ use crate::utils::get_root_path;
 pub struct File {
     pub name: String,
     pub path: PathBuf,
+    pub stat: Metadata,
 }
 
 #[derive(Debug, Clone)]
@@ -70,6 +71,7 @@ impl WorkspaceTree {
             let file = FileOrDir::File(File {
                 name: parents[0].clone(),
                 path: PathBuf::from(parents[0].clone()),
+                stat: fs::metadata(parents[0].clone()).expect("failed to get metadata"),
             });
             workspace.insert(parents[0].clone(), file);
             return;
@@ -154,6 +156,7 @@ impl WorkspaceTree {
                         .strip_prefix(&std::env::current_dir().unwrap())
                         .unwrap()
                         .to_path_buf(),
+                    stat: entry.metadata().unwrap(),
                 })
             })
             .collect::<Vec<File>>()
@@ -174,6 +177,7 @@ impl WorkspaceTree {
                 let file_entry = FileOrDir::File(File {
                     name: file.name.clone(),
                     path: file.path.clone(),
+                    stat: file.stat.clone(),
                 });
                 workspace.insert(file.name.clone(), file_entry);
             }

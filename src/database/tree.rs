@@ -62,10 +62,11 @@ impl Tree {
                 EntryOrTree::Entry(entry) => {
                     let basename = entry
                         .path
-                        .split("/")
-                        .last()
-                        .expect("Failed to split path to get basename")
-                        .to_string();
+                        .file_name()
+                        .expect("failed to get file name")
+                        .to_str()
+                        .expect("failed to convert file name to str")
+                        .to_owned();
                     self.entries.insert(basename, EntryOrTree::Entry(entry));
                 }
                 _ => {
@@ -121,7 +122,12 @@ impl Storable for Tree {
             .map(|(name, entry)| match entry {
                 EntryOrTree::Entry(entry) => {
                     let mut output: Vec<&[u8]> = Vec::new();
-                    let entry_path = entry.path.trim_end_matches('\0');
+                    // let entry_path = entry.path.trim_end_matches('\0');
+                    let entry_path = entry
+                        .path
+                        .as_os_str()
+                        .to_str()
+                        .expect("failed to convert path to str");
                     let stat = fs::metadata(&entry_path).expect("Failed to get file metadata");
                     let is_executable = stat.permissions().mode() & 0o111 != 0;
                     if is_executable {
