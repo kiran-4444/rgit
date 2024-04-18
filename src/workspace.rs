@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::fs::{self, Metadata};
 use std::path::PathBuf;
 
+use crate::index::Stat;
 use crate::utils::get_root_path;
 
 pub trait Addable {
@@ -22,7 +23,7 @@ impl Addable for WorkspaceTree {
                     name: parents[0].clone(),
                     children: BTreeMap::new(),
                 });
-                WorkspaceTree::build(dir_entry, parents, &mut self.workspace);
+                WorkspaceTree::build(dir_entry, parents, &mut self.workspace, None);
             } else {
                 let file_entry = FileOrDir::File(File {
                     name: file.name.clone(),
@@ -40,7 +41,7 @@ impl Addable for WorkspaceTree {
 pub struct File {
     pub name: String,
     pub path: PathBuf,
-    pub stat: Metadata,
+    pub stat: Stat,
     pub oid: Option<String>,
 }
 
@@ -96,13 +97,14 @@ impl WorkspaceTree {
         entry: FileOrDir,
         parents: Vec<String>,
         workspace: &mut BTreeMap<String, FileOrDir>,
+        oid: Option<String>,
     ) {
         if parents.len() == 1 {
             let file = FileOrDir::File(File {
                 name: parents[0].clone(),
                 path: PathBuf::from(parents[0].clone()),
-                stat: fs::metadata(&parents[0]).expect("failed to get metadata"),
-                oid: None,
+                stat: Stat::new(&PathBuf::from(parents[0].clone())),
+                oid,
             });
             workspace.insert(parents[0].clone(), file);
             return;
@@ -123,14 +125,10 @@ impl WorkspaceTree {
         let parent_dir = workspace.get_mut(&parent).unwrap();
         match parent_dir {
             FileOrDir::Dir(dir) => {
-                WorkspaceTree::build(entry, parents, &mut dir.children);
+                WorkspaceTree::build(entry, parents, &mut dir.children, oid);
             }
             _ => (),
         }
-    }
-
-    pub fn get_file_stat(&self, file_path: &PathBuf) -> Result<Metadata> {
-        Ok(fs::metadata(file_path)?)
     }
 
     pub fn read_file(&self, file_path: &PathBuf) -> Result<Vec<u8>> {
@@ -186,7 +184,7 @@ impl WorkspaceTree {
                         .strip_prefix(&std::env::current_dir().unwrap())
                         .expect("failed to strip prefix")
                         .to_path_buf(),
-                    stat: entry.metadata().expect("failed to get metadata"),
+                    stat: Stat::new(&entry.into_path()),
                     oid: None,
                 })
             })
@@ -205,7 +203,7 @@ impl WorkspaceTree {
                             name: parents[0].clone(),
                             children: BTreeMap::new(),
                         });
-                        WorkspaceTree::build(dir_entry, parents, &mut workspace);
+                        WorkspaceTree::build(dir_entry, parents, &mut workspace, None);
                     } else {
                         let file_entry = FileOrDir::File(File {
                             name: file.name.clone(),
