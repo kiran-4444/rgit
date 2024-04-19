@@ -120,7 +120,6 @@ impl Index {
     pub fn add(&mut self, file: &MyFile, oid: String) {
         let parents =
             FileOrDir::parent_directories(&file.path).expect("failed to get parent directories");
-        dbg!(parents.clone());
         if parents.len() > 1 {
             let dir_entry = FileOrDir::Dir(Dir {
                 name: parents[0].clone(),
@@ -279,14 +278,14 @@ impl Index {
                 String::from_utf8(entry[62..].to_vec()).expect("failed to convert to string");
 
             let path = path.trim_end_matches('\0').to_owned();
-            self.entries.workspace.insert(
-                path.clone(),
-                FileOrDir::File(MyFile {
+            self.add(
+                &MyFile {
                     name: path.clone(),
                     stat,
                     path: PathBuf::from(path),
-                    oid: Some(oid),
-                }),
+                    oid: Some(oid.clone()),
+                },
+                oid.clone(),
             );
         }
 
