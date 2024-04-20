@@ -27,6 +27,7 @@ impl CommitCMD {
 
         index.load()?;
         let mut root = Tree::new();
+        root.build_from_index(&index);
         root.traverse(&mut db)?;
         db.store(&mut root)?;
 

@@ -38,7 +38,6 @@ static MAX_PATH_SIZE: usize = 0xfff;
 
 impl Stat {
     pub fn new(path: &PathBuf) -> Self {
-        dbg!(path);
         let stat = path.metadata().expect("failed to get metadata");
         let stripped_path = path.strip_prefix(&std::env::current_dir().unwrap());
         let stripped_path = match stripped_path {
@@ -80,7 +79,10 @@ impl Stat {
         let size = u32::from_be_bytes([raw[36], raw[37], raw[38], raw[39]]);
         let oid = hex::encode(&raw[40..60]);
         let flags = u16::from_be_bytes([raw[60], raw[61]]);
-        let path = String::from_utf8(raw[62..].to_vec()).expect("failed to convert to string");
+        let path = String::from_utf8(raw[62..].to_vec())
+            .expect("failed to convert to string")
+            .trim_matches('\0')
+            .to_owned();
 
         Self {
             ctime,
@@ -234,7 +236,6 @@ impl Index {
                 entry.extend(&padding);
                 writer.write(&entry)?;
             }
-            println!("{:?}", entry);
         }
 
         writer.write_checksum()?;

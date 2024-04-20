@@ -136,8 +136,6 @@ impl WorkspaceTree {
         workspace: &mut BTreeMap<String, FileOrDir>,
         oid: Option<String>,
     ) {
-        dbg!(&parents);
-        dbg!(&components);
         if parents.len() == 1 {
             let file = FileOrDir::File(File {
                 name: components[0].clone(),
@@ -145,12 +143,10 @@ impl WorkspaceTree {
                 stat: Stat::new(&PathBuf::from(parents[0].clone())),
                 oid,
             });
-            workspace.insert(parents[0].clone(), file);
+            workspace.insert(components[0].clone(), file);
             return;
         }
 
-        dbg!(&parents);
-        dbg!(&components);
         let mut parents = parents;
         let parent = parents.remove(0);
         let mut components = components;
@@ -161,13 +157,11 @@ impl WorkspaceTree {
             children: BTreeMap::new(),
         });
 
-        dbg!(&dir);
-
-        if !workspace.contains_key(&parent) {
-            workspace.insert(parent.clone(), dir);
+        if !workspace.contains_key(&component) {
+            workspace.insert(component.clone(), dir);
         }
 
-        let parent_dir = workspace.get_mut(&parent).unwrap();
+        let parent_dir = workspace.get_mut(&component).unwrap();
         match parent_dir {
             FileOrDir::Dir(dir) => {
                 WorkspaceTree::build(entry, parents, components, &mut dir.children, oid);
@@ -245,16 +239,12 @@ impl WorkspaceTree {
                         .expect("failed to get parent directories");
                     let path_components =
                         FileOrDir::components(&file.path).expect("failed to get parent components");
-                    println!("File: {:?}, Parents: {:?}", file, parents);
-                    dbg!(&workspace);
                     if parents.len() > 1 {
-                        dbg!(&parents.join("/"));
                         let dir_entry = FileOrDir::Dir(Dir {
                             name: path_components[0].clone(),
                             path: PathBuf::from(parents[0].clone()),
                             children: BTreeMap::new(),
                         });
-                        dbg!(&dir_entry);
                         WorkspaceTree::build(
                             dir_entry,
                             parents,

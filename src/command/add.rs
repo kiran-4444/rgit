@@ -51,7 +51,6 @@ impl AddCMD {
                     let mut blob = Blob::new(data.to_owned());
                     database.store(&mut blob)?;
                     let oid = blob.oid.expect("failed to get oid");
-                    dbg!(oid.clone());
                     index.add(&entry, oid);
                 }
                 // should not worry about adding empty directories
