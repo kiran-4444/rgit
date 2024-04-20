@@ -4,104 +4,55 @@ use std::{collections::BTreeMap, fs, iter::zip, os::unix::fs::PermissionsExt};
 
 use crate::{
     database::{storable::Storable, Database},
-    index::{FileEntry, IndexEntry},
+    index::Index,
+    workspace::{File, FileOrDir},
 };
 
-#[derive(Debug, PartialEq, Eq)]
-pub enum EntryOrTree {
-    Entry(FileEntry),
+#[derive(Debug, Clone, PartialEq)]
+pub enum FileOrTree {
+    File(File),
     Tree(Tree),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Tree {
     pub oid: Option<String>,
-    pub entries: BTreeMap<String, EntryOrTree>,
+    pub entries: BTreeMap<String, FileOrTree>,
 }
 
 impl Tree {
     pub fn new() -> Self {
-        Self {
+        Tree {
             oid: None,
             entries: BTreeMap::new(),
         }
     }
 
-    pub fn build(entries: Vec<IndexEntry>) -> Result<Tree> {
-        let mut root = Tree::new();
-        for entry in entries {
+    pub fn build(&mut self, index: &Index) {
+        let mut tree = Tree::new();
+        for (path, entry) in &index.entries.workspace {
             match entry {
-                IndexEntry::Entry(entry) => {
-                    root.add_entry(entry.parent_directories()?, EntryOrTree::Entry(entry));
+                FileOrDir::File(file) => {
+                    let path = path.clone();
+                    tree.entries.insert(path, FileOrTree::File(file.clone()));
                 }
-                _ => {
-                    panic!("Invalid entry type");
-                }
+                FileOrDir::Dir(dir) => {}
             }
         }
-        Ok(root)
     }
 
     pub fn traverse(&mut self, db: &mut Database) -> Result<()> {
-        for (_key, value) in &mut self.entries {
-            match value {
-                EntryOrTree::Tree(tree) => {
-                    tree.traverse(db)?;
-                    db.store(tree)?;
-                }
-                _ => (),
-            }
-        }
+        // for (key, value) in &mut self.entries {
+        //     match value {
+        //         FileOrDir::Dir(dir) => {
+        //             tree.traverse(db)?;
+        //             db.store(tree)?;
+        //         }
+        //         _ => (),
+        //     }
+        // }
 
         Ok(())
-    }
-
-    pub fn add_entry(&mut self, parents: Vec<String>, entry: EntryOrTree) {
-        if parents.is_empty() {
-            match entry {
-                EntryOrTree::Entry(entry) => {
-                    let basename = entry
-                        .path
-                        .file_name()
-                        .expect("failed to get file name")
-                        .to_str()
-                        .expect("failed to convert file name to str")
-                        .to_owned();
-                    self.entries.insert(basename, EntryOrTree::Entry(entry));
-                }
-                _ => {
-                    panic!("Invalid entry type");
-                }
-            }
-        } else {
-            let parent_basename: Vec<String> = parents[0]
-                .split("/")
-                .filter(|s| !s.is_empty())
-                .map(|s| s.to_string())
-                .collect();
-            let result = self.entries.get_mut(
-                parent_basename
-                    .last()
-                    .expect("failed to get parent basename")
-                    .as_str(),
-            );
-            match result {
-                Some(EntryOrTree::Tree(tree)) => {
-                    tree.add_entry(parents[1..].to_vec(), entry);
-                }
-                _ => {
-                    let mut tree = Tree::new();
-                    tree.add_entry(parents[1..].to_vec(), entry);
-                    self.entries.insert(
-                        parent_basename
-                            .last()
-                            .expect("failed to get parent basename")
-                            .to_owned(),
-                        EntryOrTree::Tree(tree),
-                    );
-                }
-            }
-        }
     }
 }
 
@@ -115,66 +66,67 @@ impl Storable for Tree {
     }
 
     fn data(&self) -> String {
-        let mut hex_oids: Vec<Vec<u8>> = Vec::new();
-        let mut entries = self
-            .entries
-            .iter()
-            .map(|(name, entry)| match entry {
-                EntryOrTree::Entry(entry) => {
-                    let mut output: Vec<&[u8]> = Vec::new();
-                    // let entry_path = entry.path.trim_end_matches('\0');
-                    let entry_path = entry
-                        .path
-                        .as_os_str()
-                        .to_str()
-                        .expect("failed to convert path to str");
-                    let stat = fs::metadata(&entry_path).expect("Failed to get file metadata");
-                    let is_executable = stat.permissions().mode() & 0o111 != 0;
-                    if is_executable {
-                        output.push("100755".as_bytes());
-                    } else {
-                        output.push("100644".as_bytes());
-                    };
-                    output.push(&[b' ']);
+        // let mut hex_oids: Vec<Vec<u8>> = Vec::new();
+        // let mut entries = self
+        //     .entries
+        //     .iter()
+        //     .map(|(name, entry)| match entry {
+        //         EntryOrTree::Entry(entry) => {
+        //             let mut output: Vec<&[u8]> = Vec::new();
+        //             // let entry_path = entry.path.trim_end_matches('\0');
+        //             let entry_path = entry
+        //                 .path
+        //                 .as_os_str()
+        //                 .to_str()
+        //                 .expect("failed to convert path to str");
+        //             let stat = fs::metadata(&entry_path).expect("Failed to get file metadata");
+        //             let is_executable = stat.permissions().mode() & 0o111 != 0;
+        //             if is_executable {
+        //                 output.push("100755".as_bytes());
+        //             } else {
+        //                 output.push("100644".as_bytes());
+        //             };
+        //             output.push(&[b' ']);
 
-                    let entry_name_bytes = name.as_bytes();
-                    output.push(entry_name_bytes);
+        //             let entry_name_bytes = name.as_bytes();
+        //             output.push(entry_name_bytes);
 
-                    let null_byte_array = &[b'\x00'];
-                    output.push(null_byte_array);
+        //             let null_byte_array = &[b'\x00'];
+        //             output.push(null_byte_array);
 
-                    let decoded = hex::decode(&entry.oid).expect("Failed to decode oid");
-                    hex_oids.push(decoded.clone());
-                    output
-                }
-                EntryOrTree::Tree(tree) => {
-                    let mut output: Vec<&[u8]> = Vec::new();
+        //             let decoded = hex::decode(&entry.oid).expect("Failed to decode oid");
+        //             hex_oids.push(decoded.clone());
+        //             output
+        //         }
+        //         EntryOrTree::Tree(tree) => {
+        //             let mut output: Vec<&[u8]> = Vec::new();
 
-                    output.push("40000".as_bytes());
-                    output.push(&[b' ']);
+        //             output.push("40000".as_bytes());
+        //             output.push(&[b' ']);
 
-                    let entry_name_bytes = name.as_bytes();
-                    output.push(entry_name_bytes);
+        //             let entry_name_bytes = name.as_bytes();
+        //             output.push(entry_name_bytes);
 
-                    let null_byte_array = &[b'\x00'];
-                    output.push(null_byte_array);
+        //             let null_byte_array = &[b'\x00'];
+        //             output.push(null_byte_array);
 
-                    let decoded = hex::decode(&tree.oid.as_ref().expect("failed to get tree oid"))
-                        .expect("Failed to decode oid");
-                    hex_oids.push(decoded.clone());
-                    output
-                }
-            })
-            .collect_vec();
+        //             let decoded = hex::decode(&tree.oid.as_ref().expect("failed to get tree oid"))
+        //                 .expect("Failed to decode oid");
+        //             hex_oids.push(decoded.clone());
+        //             output
+        //         }
+        //     })
+        //     .collect_vec();
 
-        // concatenate the entries
-        let mut concatenated_entries: Vec<u8> = Vec::new();
-        for (entry, hex_oid) in zip(&mut entries, &hex_oids) {
-            entry.push(&hex_oid);
-            for e in entry.clone() {
-                concatenated_entries.extend(e);
-            }
-        }
-        unsafe { String::from_utf8_unchecked(concatenated_entries) }
+        // // concatenate the entries
+        // let mut concatenated_entries: Vec<u8> = Vec::new();
+        // for (entry, hex_oid) in zip(&mut entries, &hex_oids) {
+        //     entry.push(&hex_oid);
+        //     for e in entry.clone() {
+        //         concatenated_entries.extend(e);
+        //     }
+        // }
+        // unsafe { String::from_utf8_unchecked(concatenated_entries) }
+        "".to_owned()
     }
 }

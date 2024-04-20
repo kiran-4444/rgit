@@ -3,7 +3,7 @@ use cloneable_file::CloneableFile;
 use std::fs::{rename, OpenOptions};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Lockfile {
     pub file_path: PathBuf,
     pub lock_file_path: Option<PathBuf>,

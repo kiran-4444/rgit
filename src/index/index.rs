@@ -15,7 +15,7 @@ static HEADER_SIZE: usize = 12;
 static ENTRY_MIN_SIZE: usize = 64;
 static ENTRY_BLOCK_SIZE: usize = 8;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Stat {
     ino: u32,
     size: u32,
@@ -38,6 +38,7 @@ static MAX_PATH_SIZE: usize = 0xfff;
 
 impl Stat {
     pub fn new(path: &PathBuf) -> Self {
+        dbg!(path);
         let stat = path.metadata().expect("failed to get metadata");
         let stripped_path = path.strip_prefix(&std::env::current_dir().unwrap());
         let stripped_path = match stripped_path {
@@ -99,7 +100,7 @@ impl Stat {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Index {
     pub entries: WorkspaceTree,
     pub lockfile: Lockfile,
@@ -120,12 +121,21 @@ impl Index {
     pub fn add(&mut self, file: &MyFile, oid: String) {
         let parents =
             FileOrDir::parent_directories(&file.path).expect("failed to get parent directories");
+        let path_components =
+            FileOrDir::components(&file.path).expect("failed to get parent components");
         if parents.len() > 1 {
             let dir_entry = FileOrDir::Dir(Dir {
                 name: parents[0].clone(),
+                path: PathBuf::from(parents[0].clone()),
                 children: BTreeMap::new(),
             });
-            WorkspaceTree::build(dir_entry, parents, &mut self.entries.workspace, Some(oid));
+            WorkspaceTree::build(
+                dir_entry,
+                parents,
+                path_components,
+                &mut self.entries.workspace,
+                Some(oid),
+            );
         } else {
             let file_entry = FileOrDir::File(MyFile {
                 name: file.name.clone(),

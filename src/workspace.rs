@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use predicates::path;
 use walkdir::WalkDir;
 
 use std::collections::BTreeMap;
@@ -18,12 +19,21 @@ impl Addable for WorkspaceTree {
         for file in files {
             let parents = FileOrDir::parent_directories(&file.path)
                 .expect("failed to get parent directories");
+            let path_components =
+                FileOrDir::components(&file.path).expect("failed to get parent components");
             if parents.len() > 1 {
                 let dir_entry = FileOrDir::Dir(Dir {
                     name: parents[0].clone(),
+                    path: PathBuf::from(parents[0].clone()),
                     children: BTreeMap::new(),
                 });
-                WorkspaceTree::build(dir_entry, parents, &mut self.workspace, None);
+                WorkspaceTree::build(
+                    dir_entry,
+                    parents,
+                    path_components,
+                    &mut self.workspace,
+                    None,
+                );
             } else {
                 let file_entry = FileOrDir::File(File {
                     name: file.name.clone(),
@@ -37,7 +47,7 @@ impl Addable for WorkspaceTree {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct File {
     pub name: String,
     pub path: PathBuf,
@@ -45,19 +55,45 @@ pub struct File {
     pub oid: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Dir {
     pub name: String,
+    pub path: PathBuf,
     pub children: BTreeMap<String, FileOrDir>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum FileOrDir {
     File(File),
     Dir(Dir),
 }
 
 impl FileOrDir {
+    /// Get the parent directories of a file or directory.
+    /// # Example:
+    /// ```rust
+    /// use std::path::PathBuf;
+    /// use r_git::workspace_tree::FileOrDir;
+    /// let path = PathBuf::from("foo/bar/baz");
+    /// let parents = FileOrDir::components(&path).unwrap();
+    /// assert_eq!(parents, vec!["foo", "bar", "baz"]);
+    pub fn components(path: &PathBuf) -> Result<Vec<String>> {
+        let mut parents = Vec::new();
+        let components = path
+            .components()
+            .map(|c| {
+                Ok(c.as_os_str()
+                    .to_str()
+                    .expect("failed to convert path to str")
+                    .to_owned())
+            })
+            .collect::<Result<Vec<_>>>()?;
+        for part in components.iter().take(components.len()) {
+            parents.push(part.clone());
+        }
+        Ok(parents)
+    }
+
     /// Get the parent directories of a file or directory.
     /// # Example:
     /// ```rust
@@ -87,7 +123,7 @@ impl FileOrDir {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct WorkspaceTree {
     pub workspace: BTreeMap<String, FileOrDir>,
 }
@@ -96,12 +132,15 @@ impl WorkspaceTree {
     pub fn build(
         entry: FileOrDir,
         parents: Vec<String>,
+        components: Vec<String>,
         workspace: &mut BTreeMap<String, FileOrDir>,
         oid: Option<String>,
     ) {
+        dbg!(&parents);
+        dbg!(&components);
         if parents.len() == 1 {
             let file = FileOrDir::File(File {
-                name: parents[0].clone(),
+                name: components[0].clone(),
                 path: PathBuf::from(parents[0].clone()),
                 stat: Stat::new(&PathBuf::from(parents[0].clone())),
                 oid,
@@ -110,13 +149,19 @@ impl WorkspaceTree {
             return;
         }
 
-        let parent = parents[0].clone();
+        dbg!(&parents);
+        dbg!(&components);
         let mut parents = parents;
-        parents.remove(0);
+        let parent = parents.remove(0);
+        let mut components = components;
+        let component = components.remove(0);
         let dir = FileOrDir::Dir(Dir {
-            name: parent.clone(),
+            name: component.clone(),
+            path: PathBuf::from(parent.clone()),
             children: BTreeMap::new(),
         });
+
+        dbg!(&dir);
 
         if !workspace.contains_key(&parent) {
             workspace.insert(parent.clone(), dir);
@@ -125,7 +170,7 @@ impl WorkspaceTree {
         let parent_dir = workspace.get_mut(&parent).unwrap();
         match parent_dir {
             FileOrDir::Dir(dir) => {
-                WorkspaceTree::build(entry, parents, &mut dir.children, oid);
+                WorkspaceTree::build(entry, parents, components, &mut dir.children, oid);
             }
             _ => (),
         }
@@ -198,12 +243,25 @@ impl WorkspaceTree {
                 for file in files {
                     let parents = FileOrDir::parent_directories(&file.path)
                         .expect("failed to get parent directories");
+                    let path_components =
+                        FileOrDir::components(&file.path).expect("failed to get parent components");
+                    println!("File: {:?}, Parents: {:?}", file, parents);
+                    dbg!(&workspace);
                     if parents.len() > 1 {
+                        dbg!(&parents.join("/"));
                         let dir_entry = FileOrDir::Dir(Dir {
-                            name: parents[0].clone(),
+                            name: path_components[0].clone(),
+                            path: PathBuf::from(parents[0].clone()),
                             children: BTreeMap::new(),
                         });
-                        WorkspaceTree::build(dir_entry, parents, &mut workspace, None);
+                        dbg!(&dir_entry);
+                        WorkspaceTree::build(
+                            dir_entry,
+                            parents,
+                            path_components,
+                            &mut workspace,
+                            None,
+                        );
                     } else {
                         let file_entry = FileOrDir::File(File {
                             name: file.name.clone(),
