@@ -209,7 +209,7 @@ impl Index {
             let oid = hex::decode(entry.oid.as_ref().expect("failed to get oid"))
                 .expect("failed to decode oid");
             let flags = entry.stat.flags;
-            let path = entry.name.as_bytes().to_vec();
+            let path = entry.path.as_os_str().to_str().unwrap().as_bytes().to_vec();
 
             let mut entry = vec![];
             entry.extend(ctime.to_be_bytes().to_vec());
