@@ -62,9 +62,6 @@ impl AddCMD {
                 anyhow::bail!("Failed to hold index for update");
             }
         }
-        println!("Storing index");
-        dbg!(&index.entries);
-
         Ok(())
     }
 }

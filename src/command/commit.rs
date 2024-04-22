@@ -29,7 +29,6 @@ impl CommitCMD {
         root.build_from_index(&index);
         root.traverse(&mut db)?;
         db.store(&mut root)?;
-        dbg!(&root);
 
         let (name, email) = self
             .get_config()

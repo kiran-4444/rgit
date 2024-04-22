@@ -160,10 +160,29 @@ fn test_add_with_duplicate_entries() -> Result<()> {
 }
 
 #[test]
-fn test_add_with_same_file_name_and_dir_name() -> Result<()> {
+fn adding_empty_dirs_should_succeed_without_updating_index() -> Result<()> {
     let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
-    // fs::create_dir("test_rgit").expect("Failed to create temp dir");
-    // let temp_dir = PathBuf::from("test_rgit");
+    setup_rgit(&temp_dir.path().to_path_buf())?;
+
+    let dir_path = temp_dir.path().join("dir");
+    std::fs::create_dir(&dir_path).expect("Failed to create directory");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("dir")
+        .assert()
+        .success();
+
+    assert_eq!(false, temp_dir.path().join(".rgit/index").exists());
+
+    Ok(())
+}
+
+#[test]
+fn test_add_dir_with_same_file_name() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+
     setup_rgit(&temp_dir.path().to_path_buf())?;
     setup_git(&temp_dir.path().to_path_buf())?;
 
@@ -215,26 +234,6 @@ fn test_add_with_same_file_name_and_dir_name() -> Result<()> {
         read(temp_dir.path().join(".git/index")).expect("Failed to read index file");
 
     assert_eq!(rgit_index_content, git_index_content);
-
-    Ok(())
-}
-
-#[test]
-fn adding_empty_dirs_should_succeed_without_updating_index() -> Result<()> {
-    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
-    setup_rgit(&temp_dir.path().to_path_buf())?;
-
-    let dir_path = temp_dir.path().join("dir");
-    std::fs::create_dir(&dir_path).expect("Failed to create directory");
-
-    let mut cmd = get_rgit_cmd();
-    cmd.current_dir(&temp_dir)
-        .arg("add")
-        .arg("dir")
-        .assert()
-        .success();
-
-    assert_eq!(false, temp_dir.path().join(".rgit/index").exists());
 
     Ok(())
 }

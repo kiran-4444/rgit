@@ -1,12 +1,12 @@
 use anyhow::Result;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::PathBuf;
 
 use crate::{
     index::{Checksum, Stat},
     lockfile::Lockfile,
-    workspace::{Dir, File as MyFile, FileOrDir, WorkspaceTree},
+    workspace::{Dir, File as MyFile, FileOrDir},
 };
 
 static HEADER_SIZE: usize = 12;
@@ -48,7 +48,7 @@ impl Index {
         file: &MyFile,
     ) {
         if parents.len() == 1 {
-            entries.insert(parents[0].clone(), FileOrDir::File(file.clone()));
+            entries.insert(path_components[0].clone(), FileOrDir::File(file.clone()));
             return;
         }
 
@@ -59,6 +59,11 @@ impl Index {
 
         if !entries.contains_key(&component) {
             entries.insert(component.clone(), entry.clone());
+        } else {
+            let value = entries.get(&component).unwrap();
+            if let FileOrDir::File(_) = value {
+                entries.insert(component.clone(), entry.clone());
+            }
         }
 
         let parent_dir = entries.get_mut(&component).unwrap();
@@ -67,7 +72,7 @@ impl Index {
                 Index::build(entry, parents, components, &mut dir.children, file);
             }
             _ => {
-                entries.insert(parents[0].clone(), entry.clone());
+                entries.insert(path_components[0].clone(), entry.clone());
             }
         }
     }
@@ -103,7 +108,7 @@ impl Index {
     }
 
     pub fn from_flat_entries(&mut self, flat_index: &FlatIndex) {
-        for (path, entry) in &flat_index.entries {
+        for (_, entry) in &flat_index.entries {
             self.add(entry);
         }
     }
@@ -235,7 +240,6 @@ impl Index {
     }
 
     fn read_entries(&mut self, reader: &mut Checksum, count: u32) -> Result<FlatIndex> {
-        println!("Reading entries");
         let mut flat_index = FlatIndex {
             entries: BTreeMap::new(),
         };
