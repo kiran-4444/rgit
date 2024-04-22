@@ -4,7 +4,7 @@ use std::env;
 
 use crate::{
     database::{Author, Commit, Database, Tree},
-    index::{Index, IndexEntry},
+    index::Index,
     refs::Refs,
     utils::{get_root_path, write_to_stdout},
 };
@@ -25,10 +25,9 @@ impl CommitCMD {
         let mut index = Index::new(git_path.join("index"));
 
         index.load()?;
-        let entries = index.entries.values().cloned().collect::<Vec<IndexEntry>>();
-        let mut root = Tree::build(entries.clone())?;
+        let mut root = Tree::new();
+        root.build_from_index(&index);
         root.traverse(&mut db)?;
-
         db.store(&mut root)?;
 
         let (name, email) = self

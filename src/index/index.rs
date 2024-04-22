@@ -1,19 +1,26 @@
 use anyhow::Result;
 use std::collections::BTreeMap;
-use std::fs::{File, Metadata};
+use std::fs::File;
 use std::path::PathBuf;
 
-use crate::{index::Checksum, index::FileEntry, lockfile::Lockfile};
-
-use super::entry::IndexEntry;
+use crate::{
+    index::{Checksum, Stat},
+    lockfile::Lockfile,
+    workspace::{Dir, File as MyFile, FileOrDir},
+};
 
 static HEADER_SIZE: usize = 12;
 static ENTRY_MIN_SIZE: usize = 64;
 static ENTRY_BLOCK_SIZE: usize = 8;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct FlatIndex {
+    pub entries: BTreeMap<String, MyFile>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Index {
-    pub entries: BTreeMap<String, IndexEntry>,
+    pub entries: BTreeMap<String, FileOrDir>,
     pub lockfile: Lockfile,
     pub changed: bool,
 }
@@ -29,64 +36,102 @@ impl Index {
         }
     }
 
-    /// Discard any entries that conflict with the given entry.
-    /// This is used to handle cases where a file is being added to the index and a directory
-    /// with the same name exists in the index or vice versa.
-    /// # Example:
-    /// ```bash
-    /// git add foo.txt/bar
-    /// rm -rf foo.txt
-    /// git add foo.txt
-    /// ```
-    /// In this case, the directory foo.txt is removed and a file with the same name is added.
-    /// The directory foo.txt should be removed from the index.
-    /// ```bash
-    /// git add foo.txt
-    /// rm foo.txt
-    /// mkdir foo.txt
-    /// touch foo.txt/bar
-    /// git add foo.txt
-    /// ```
-    /// In this case, the file foo.txt is removed and a directory with the same name is created.
-    /// The file foo.txt should be removed from the index.
-    fn discard_conflicts(&mut self, entry: &FileEntry) {
-        let mut parents = entry
-            .parent_directories()
-            .expect("failed to get parent directories");
+    pub fn discard_conflicts(&mut self, file: &MyFile) {
+        self.entries.remove(file.path.to_str().unwrap());
+    }
 
-        // if the entry is a file, we need to add this file to the parents
-        // handles the case where a directory with the same name as the file exists in the index
-        // and the file is being added to the index as well
-        if parents.is_empty() {
-            parents.push(entry.path.clone());
+    pub fn build(
+        entry: FileOrDir,
+        parents: Vec<String>,
+        path_components: Vec<String>,
+        entries: &mut BTreeMap<String, FileOrDir>,
+        file: &MyFile,
+    ) {
+        if parents.len() == 1 {
+            entries.insert(path_components[0].clone(), FileOrDir::File(file.clone()));
+            return;
         }
 
-        for parent in parents {
-            let parent = parent.trim_end_matches('\0').to_owned();
-            for (name, entry) in self.entries.clone() {
-                match entry {
-                    // if the entry is a file and the path starts with the parent directory
-                    // remove the entry from the index
-                    IndexEntry::Entry(entry) => {
-                        if entry.path.starts_with(&parent) {
-                            self.entries.remove(&name);
-                        }
-                    }
-                    _ => {}
-                }
+        let mut components = path_components.clone();
+        let component = components.remove(0);
+        let mut parents = parents;
+        let _ = parents.remove(0);
+
+        if !entries.contains_key(&component) {
+            entries.insert(component.clone(), entry.clone());
+        } else {
+            let value = entries.get(&component).unwrap();
+            if let FileOrDir::File(_) = value {
+                entries.insert(component.clone(), entry.clone());
+            }
+        }
+
+        let parent_dir = entries.get_mut(&component).unwrap();
+        match parent_dir {
+            FileOrDir::Dir(dir) => {
+                Index::build(entry, parents, components, &mut dir.children, file);
+            }
+            _ => {
+                entries.insert(path_components[0].clone(), entry.clone());
             }
         }
     }
 
-    pub fn add(&mut self, path: &PathBuf, oid: String, stat: Metadata) {
-        let name = path
-            .to_str()
-            .expect("failed to convert path to str")
-            .to_owned();
-        let entry = FileEntry::new(name.to_owned(), oid, stat);
-        self.discard_conflicts(&entry);
-        self.entries.insert(name, IndexEntry::Entry(entry));
+    pub fn add(&mut self, file: &MyFile) {
+        self.discard_conflicts(file);
+        let parents =
+            FileOrDir::parent_directories(&file.path).expect("failed to get parent directories");
+        let path_components =
+            FileOrDir::components(&file.path).expect("failed to get parent components");
+
+        if parents.len() > 1 {
+            let dir_entry = FileOrDir::Dir(Dir {
+                name: parents[0].clone(),
+                path: PathBuf::from(parents[0].clone()),
+                children: BTreeMap::new(),
+            });
+            Index::build(
+                dir_entry,
+                parents,
+                path_components,
+                &mut self.entries,
+                &file,
+            );
+        } else {
+            self.entries.insert(
+                file.path.to_str().unwrap().to_owned(),
+                FileOrDir::File(file.clone()),
+            );
+        }
+
         self.changed = true;
+    }
+
+    pub fn from_flat_entries(&mut self, flat_index: &FlatIndex) {
+        for (_, entry) in &flat_index.entries {
+            self.add(entry);
+        }
+    }
+
+    pub fn flatten_entries(entries: &BTreeMap<String, FileOrDir>, flat_index: &mut FlatIndex) {
+        for (_, entry) in entries {
+            match entry {
+                FileOrDir::File(file) => {
+                    flat_index.entries.insert(
+                        file.path.as_os_str().to_str().unwrap().to_owned().clone(),
+                        file.clone(),
+                    );
+                }
+                FileOrDir::Dir(dir) => {
+                    // let mut dir_entries: BTreeMap<String, FileOrDir> = BTreeMap::new();
+                    Index::flatten_entries(&dir.children, flat_index);
+                    // flat_index.entries.insert(
+                    //     dir.path.as_os_str().to_str().unwrap().to_owned().clone(),
+                    //     FileOrDir::Dir(dir.clone()),
+                    // );
+                }
+            }
+        }
     }
 
     pub fn write_updates(&mut self) -> Result<()> {
@@ -109,20 +154,54 @@ impl Index {
         let version = 2u32.to_be_bytes().to_vec();
         writer.write(&version)?;
 
+        let mut flat_index = FlatIndex {
+            entries: BTreeMap::new(),
+        };
+        Index::flatten_entries(&self.entries, &mut flat_index);
+
         // pad the number of entries to 4 bytes
-        let num_entries = self.entries.len() as u32;
+        let num_entries = flat_index.entries.len() as u32;
         let num_entries = num_entries.to_be_bytes().to_vec();
         writer.write(&num_entries)?;
 
-        for (_name, entry) in &self.entries {
-            match entry {
-                IndexEntry::Entry(entry) => {
-                    let content = entry.convert();
-                    writer.write(&content)?;
-                }
-                _ => {
-                    panic!("Invalid entry type");
-                }
+        for (_name, entry) in &flat_index.entries {
+            let ctime = entry.stat.ctime;
+            let ctime_nsec = entry.stat.ctime_nsec;
+            let mtime = entry.stat.mtime;
+            let mtime_nsec = entry.stat.mtime_nsec;
+            let dev = entry.stat.dev;
+            let ino = entry.stat.ino;
+            let mode = entry.stat.mode;
+            let uid = entry.stat.uid;
+            let gid = entry.stat.gid;
+            let file_size = entry.stat.size;
+            let oid = hex::decode(entry.oid.as_ref().expect("failed to get oid"))
+                .expect("failed to decode oid");
+            let flags = entry.stat.flags;
+            let path = entry.path.as_os_str().to_str().unwrap().as_bytes().to_vec();
+
+            let mut entry = vec![];
+            entry.extend(ctime.to_be_bytes().to_vec());
+            entry.extend(ctime_nsec.to_be_bytes().to_vec());
+            entry.extend(mtime.to_be_bytes().to_vec());
+            entry.extend(mtime_nsec.to_be_bytes().to_vec());
+            entry.extend(dev.to_be_bytes().to_vec());
+            entry.extend(ino.to_be_bytes().to_vec());
+            entry.extend(mode.to_be_bytes().to_vec());
+            entry.extend(uid.to_be_bytes().to_vec());
+            entry.extend(gid.to_be_bytes().to_vec());
+            entry.extend(file_size.to_be_bytes().to_vec());
+            entry.extend(oid);
+            entry.extend(flags.to_be_bytes().to_vec());
+            entry.extend(path);
+
+            if entry.len() % 8 == 0 && entry[entry.len() - 1] == 0 {
+                writer.write(&entry)?;
+            } else {
+                let padding_length = 8 - (entry.len() % 8);
+                let padding = vec![0; padding_length];
+                entry.extend(&padding);
+                writer.write(&entry)?;
             }
         }
 
@@ -160,7 +239,10 @@ impl Index {
         Ok(num_entries)
     }
 
-    fn read_entries(&mut self, reader: &mut Checksum, count: u32) -> Result<()> {
+    fn read_entries(&mut self, reader: &mut Checksum, count: u32) -> Result<FlatIndex> {
+        let mut flat_index = FlatIndex {
+            entries: BTreeMap::new(),
+        };
         for _ in 0..count {
             let mut entry = reader.read(ENTRY_MIN_SIZE)?;
             loop {
@@ -171,39 +253,29 @@ impl Index {
                 entry.extend(padding);
             }
 
-            let ctime = u32::from_be_bytes([entry[0], entry[1], entry[2], entry[3]]);
-            let ctime_nsec = u32::from_be_bytes([entry[4], entry[5], entry[6], entry[7]]);
-            let mtime = u32::from_be_bytes([entry[8], entry[9], entry[10], entry[11]]);
-            let mtime_nsec = u32::from_be_bytes([entry[12], entry[13], entry[14], entry[15]]);
-            let dev = u32::from_be_bytes([entry[16], entry[17], entry[18], entry[19]]);
-            let ino = u32::from_be_bytes([entry[20], entry[21], entry[22], entry[23]]);
-            let mode = u32::from_be_bytes([entry[24], entry[25], entry[26], entry[27]]);
-            let uid = u32::from_be_bytes([entry[28], entry[29], entry[30], entry[31]]);
-            let gid = u32::from_be_bytes([entry[32], entry[33], entry[34], entry[35]]);
-            let file_size = u32::from_be_bytes([entry[36], entry[37], entry[38], entry[39]]);
+            let stat = Stat::from_raw(&entry);
             let oid = hex::encode(&entry[40..60]);
-            let flags = u16::from_be_bytes([entry[60], entry[61]]);
-            let path = String::from_utf8(entry[62..].to_vec())?;
-            let entry = FileEntry {
-                oid,
-                ctime,
-                ctime_nsec,
-                mtime,
-                mtime_nsec,
-                dev,
-                ino,
-                mode,
-                uid,
-                gid,
-                file_size,
-                flags,
-                path: path.clone(),
-            };
+            let path =
+                String::from_utf8(entry[62..].to_vec()).expect("failed to convert to string");
+
             let path = path.trim_end_matches('\0').to_owned();
-            self.entries.insert(path, IndexEntry::Entry(entry));
+            let entry = MyFile {
+                name: PathBuf::from(&path)
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .to_owned(),
+                stat,
+                path: PathBuf::from(path),
+                oid: Some(oid.clone()),
+            };
+            flat_index
+                .entries
+                .insert(entry.path.to_str().unwrap().to_owned(), entry);
         }
 
-        Ok(())
+        Ok(flat_index)
     }
 
     pub fn load(&mut self) -> Result<()> {
@@ -215,7 +287,8 @@ impl Index {
         let mut file = file.expect("failed to get file content");
         let mut reader = Checksum::new(&mut file);
         let count = self.read_header(&mut reader)?;
-        self.read_entries(&mut reader, count)?;
+        let flat_index = self.read_entries(&mut reader, count)?;
+        self.from_flat_entries(&flat_index);
         reader.verify_checksum()?;
         Ok(())
     }

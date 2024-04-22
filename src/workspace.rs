@@ -1,26 +1,181 @@
 use anyhow::{anyhow, Result};
-use std::fs::{self, metadata, Metadata};
-use std::path::{Path, PathBuf};
-use std::{fmt::Debug, os::unix::fs::PermissionsExt};
+use walkdir::WalkDir;
 
+use std::collections::BTreeMap;
+use std::fs::{self};
+use std::path::PathBuf;
+
+use crate::index::Stat;
 use crate::utils::get_root_path;
-#[derive(Debug)]
-pub struct WorkSpaceEntry {
-    pub name: PathBuf,
-    pub mode: String,
+
+pub trait Addable {
+    fn add(&mut self, path: &PathBuf, oid: String);
 }
 
-#[derive(Debug, Clone)]
-pub struct Workspace {
-    pub root_path: PathBuf,
+impl Addable for WorkspaceTree {
+    fn add(&mut self, path: &PathBuf, oid: String) {
+        let files = WorkspaceTree::list_files(path);
+        for file in files {
+            let parents = FileOrDir::parent_directories(&file.path)
+                .expect("failed to get parent directories");
+            let path_components =
+                FileOrDir::components(&file.path).expect("failed to get parent components");
+            if parents.len() > 1 {
+                let dir_entry = FileOrDir::Dir(Dir {
+                    name: parents[0].clone(),
+                    path: PathBuf::from(parents[0].clone()),
+                    children: BTreeMap::new(),
+                });
+                WorkspaceTree::build(
+                    dir_entry,
+                    parents,
+                    path_components,
+                    &mut self.workspace,
+                    None,
+                );
+            } else {
+                let file_entry = FileOrDir::File(File {
+                    name: file.name.clone(),
+                    path: file.path.clone(),
+                    stat: file.stat.clone(),
+                    oid: Some(oid.clone()),
+                });
+                self.workspace.insert(file.name.clone(), file_entry);
+            }
+        }
+    }
 }
 
-impl Workspace {
-    pub fn new(root_path: PathBuf) -> Self {
-        Workspace { root_path }
+#[derive(Debug, Clone, PartialEq)]
+pub struct File {
+    pub name: String,
+    pub path: PathBuf,
+    pub stat: Stat,
+    pub oid: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Dir {
+    pub name: String,
+    pub path: PathBuf,
+    pub children: BTreeMap<String, FileOrDir>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum FileOrDir {
+    File(File),
+    Dir(Dir),
+}
+
+impl FileOrDir {
+    /// Get the parent directories of a file or directory.
+    /// # Example:
+    /// ```rust
+    /// use std::path::PathBuf;
+    /// use r_git::workspace::FileOrDir;
+    /// let path = PathBuf::from("foo/bar/baz");
+    /// let parents = FileOrDir::components(&path).unwrap();
+    /// assert_eq!(parents, vec!["foo", "bar", "baz"]);
+    pub fn components(path: &PathBuf) -> Result<Vec<String>> {
+        let mut parents = Vec::new();
+        let components = path
+            .components()
+            .map(|c| {
+                Ok(c.as_os_str()
+                    .to_str()
+                    .expect("failed to convert path to str")
+                    .to_owned())
+            })
+            .collect::<Result<Vec<_>>>()?;
+        for part in components.iter().take(components.len()) {
+            parents.push(part.clone());
+        }
+        Ok(parents)
     }
 
-    fn ignored_files(&self) -> Result<Vec<String>> {
+    /// Get the parent directories of a file or directory.
+    /// # Example:
+    /// ```rust
+    /// use std::path::PathBuf;
+    /// use r_git::workspace::FileOrDir;
+    /// let path = PathBuf::from("foo/bar/baz");
+    /// let parents = FileOrDir::parent_directories(&path).unwrap();
+    /// assert_eq!(parents, vec!["foo", "foo/bar", "foo/bar/baz"]);
+    pub fn parent_directories(path: &PathBuf) -> Result<Vec<String>> {
+        let mut parents = Vec::new();
+        let components = path
+            .components()
+            .map(|c| {
+                Ok(c.as_os_str()
+                    .to_str()
+                    .expect("failed to convert path to str")
+                    .to_owned())
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let mut current_path = String::new();
+        for part in components.iter().take(components.len()) {
+            current_path.push_str(part);
+            parents.push(current_path.clone());
+            current_path.push('/');
+        }
+        Ok(parents)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WorkspaceTree {
+    pub workspace: BTreeMap<String, FileOrDir>,
+}
+
+impl WorkspaceTree {
+    pub fn build(
+        entry: FileOrDir,
+        parents: Vec<String>,
+        components: Vec<String>,
+        workspace: &mut BTreeMap<String, FileOrDir>,
+        oid: Option<String>,
+    ) {
+        if parents.len() == 1 {
+            let file = FileOrDir::File(File {
+                name: components[0].clone(),
+                path: PathBuf::from(parents[0].clone()),
+                stat: Stat::new(&PathBuf::from(parents[0].clone())),
+                oid,
+            });
+            workspace.insert(parents[0].clone(), file);
+            return;
+        }
+
+        let mut parents = parents;
+        let parent = parents.remove(0);
+        let mut components = components;
+        let component = components.remove(0);
+        let dir = FileOrDir::Dir(Dir {
+            name: component.clone(),
+            path: PathBuf::from(parent.clone()),
+            children: BTreeMap::new(),
+        });
+
+        if !workspace.contains_key(&component) {
+            workspace.insert(component.clone(), dir);
+        }
+
+        let parent_dir = workspace.get_mut(&component).unwrap();
+        match parent_dir {
+            FileOrDir::Dir(dir) => {
+                WorkspaceTree::build(entry, parents, components, &mut dir.children, oid);
+            }
+            _ => (),
+        }
+    }
+
+    pub fn read_file(&self, file_path: &PathBuf) -> Result<Vec<u8>> {
+        let content = fs::read(file_path)
+            .map_err(|e| anyhow!("failed to read file {}: {}", file_path.display(), e))?;
+        Ok(content)
+    }
+
+    fn ignored_files() -> Result<Vec<String>> {
         let root_path = get_root_path()?;
         let gitignore_path = root_path.join(".rgitignore");
         let mut ignored_files = vec![];
@@ -36,88 +191,86 @@ impl Workspace {
         Ok(ignored_files)
     }
 
-    fn get_mode(&self, file_path: &PathBuf) -> Result<String> {
-        let is_executable = file_path.metadata()?.permissions().mode() & 0o111 != 0;
-        // git uses 100644 for normal files and 100755 for executable files
-        let file_mode = if is_executable { "100755" } else { "100644" };
-        Ok(file_mode.to_string())
-    }
-
-    fn get_file_name(&self, entry: &Path) -> Result<String> {
-        Ok(entry
-            .file_name()
-            .ok_or(anyhow!("failed to get file name"))?
-            .to_str()
-            .ok_or(anyhow!("failed to convert path to str"))?
-            .to_string())
-    }
-
-    fn _list_files(&self, vec: &mut Vec<PathBuf>, path: &Path) -> Result<()> {
-        if metadata(&path)?.is_dir() {
-            let last_component = path.components().last().unwrap();
-            if self
-                .ignored_files()?
-                .contains(&last_component.as_os_str().to_str().unwrap().to_string())
-            {
-                return Ok(());
-            }
-            let paths = fs::read_dir(&path)?;
-            for path_result in paths {
-                let full_path = path_result?.path();
-                if metadata(&full_path)?.is_dir() {
-                    self._list_files(vec, &full_path)?;
-                } else {
-                    let file_name = self.get_file_name(&full_path)?;
-                    if self.ignored_files()?.contains(&file_name) {
-                        continue;
+    pub fn list_files(path: &PathBuf) -> Vec<File> {
+        let ignored_files = WorkspaceTree::ignored_files().expect("failed to get ignored files");
+        let mut files = WalkDir::new(path)
+            .into_iter()
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| {
+                let path = entry.path();
+                let components = path.components().map(|c| c.as_os_str()).collect::<Vec<_>>();
+                let mut is_ignored = false;
+                for ignored in ignored_files.iter() {
+                    if components.contains(&ignored.as_ref()) {
+                        is_ignored = true;
+                        break;
                     }
-                    vec.push(full_path);
                 }
-            }
-            Ok(())
-        } else {
-            vec.push(path.to_path_buf());
-            Ok(())
-        }
-    }
-
-    pub fn read_file(&self, file_path: &PathBuf) -> Result<Vec<u8>> {
-        let content = fs::read(file_path)
-            .map_err(|e| anyhow!("failed to read file {}: {}", file_path.display(), e))?;
-        Ok(content)
-    }
-
-    pub fn get_file_stat(&self, file_path: &PathBuf) -> Result<Metadata> {
-        Ok(fs::metadata(file_path)?)
-    }
-
-    pub fn list_files(&self, path: &PathBuf) -> Result<Vec<WorkSpaceEntry>> {
-        let mut vec = Vec::new();
-        self._list_files(&mut vec, &path)?;
-        let mut entries = vec
-            .iter()
-            .map(|path| {
-                Ok(WorkSpaceEntry {
-                    name: path.strip_prefix(std::env::current_dir()?)?.to_owned(),
-                    mode: self.get_mode(&path)?,
+                !is_ignored
+            })
+            .filter_map(|entry| {
+                entry.file_type().is_file().then(|| File {
+                    name: entry
+                        .path()
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_owned(),
+                    path: entry
+                        .path()
+                        .strip_prefix(&std::env::current_dir().unwrap())
+                        .expect("failed to strip prefix")
+                        .to_path_buf(),
+                    stat: Stat::new(&entry.into_path()),
+                    oid: None,
                 })
             })
-            .collect::<Result<Vec<WorkSpaceEntry>>>()?;
-
-        entries.sort_by(|a, b| {
-            a.name
-                .to_owned()
-                .to_str()
-                .expect("failed to convert path to str")
-                .to_owned()
-                .cmp(
-                    &b.name
-                        .to_owned()
-                        .to_str()
-                        .expect("failed to convert path to str")
-                        .to_owned(),
-                )
-        });
-        Ok(entries)
+            .collect::<Vec<File>>();
+        files.sort_by(|a, b| a.path.cmp(&b.path));
+        files
+    }
+    pub fn new(root: Option<&PathBuf>) -> Self {
+        match root {
+            Some(root) => {
+                let files = WorkspaceTree::list_files(root);
+                let mut workspace = BTreeMap::new();
+                for file in files {
+                    let parents = FileOrDir::parent_directories(&file.path)
+                        .expect("failed to get parent directories");
+                    let path_components =
+                        FileOrDir::components(&file.path).expect("failed to get parent components");
+                    if parents.len() > 1 {
+                        let dir_entry = FileOrDir::Dir(Dir {
+                            name: path_components[0].clone(),
+                            path: PathBuf::from(parents[0].clone()),
+                            children: BTreeMap::new(),
+                        });
+                        WorkspaceTree::build(
+                            dir_entry,
+                            parents,
+                            path_components,
+                            &mut workspace,
+                            None,
+                        );
+                    } else {
+                        let file_entry = FileOrDir::File(File {
+                            name: file.name.clone(),
+                            path: file.path.clone(),
+                            stat: file.stat.clone(),
+                            oid: None,
+                        });
+                        workspace.insert(
+                            file.path.as_os_str().to_str().unwrap().to_owned(),
+                            file_entry,
+                        );
+                    }
+                }
+                WorkspaceTree { workspace }
+            }
+            None => WorkspaceTree {
+                workspace: BTreeMap::new(),
+            },
+        }
     }
 }

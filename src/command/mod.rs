@@ -17,7 +17,7 @@ pub enum GitCMD {
     /// Show the working tree status
     Status(status::StatusCMD),
 
-    /// Add file contents to the index
+    //// Add file contents to the index
     Add(add::AddCMD),
 }
 

@@ -86,7 +86,11 @@ fn test_commit_with_single_file() -> Result<()> {
 
     let output = cmd.output().expect("Failed to run command");
     let output = String::from_utf8_lossy(&output.stdout);
-    let commit_oid = output.trim().split(" ").next().unwrap();
+    let commit_oid = output
+        .trim()
+        .split(" ")
+        .next()
+        .expect("Failed to get commit oid");
 
     fs::rename(
         temp_dir.path().join(".rgit/"),
