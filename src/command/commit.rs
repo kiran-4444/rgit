@@ -7,7 +7,6 @@ use crate::{
     index::Index,
     refs::Refs,
     utils::{get_root_path, write_to_stdout},
-    workspace::FileOrDir,
 };
 
 #[derive(Parser, Debug, PartialEq)]
@@ -30,6 +29,7 @@ impl CommitCMD {
         root.build_from_index(&index);
         root.traverse(&mut db)?;
         db.store(&mut root)?;
+        dbg!(&root);
 
         let (name, email) = self
             .get_config()

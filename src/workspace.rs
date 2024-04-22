@@ -1,9 +1,8 @@
 use anyhow::{anyhow, Result};
-use predicates::path;
 use walkdir::WalkDir;
 
 use std::collections::BTreeMap;
-use std::fs::{self, Metadata};
+use std::fs::{self};
 use std::path::PathBuf;
 
 use crate::index::Stat;
@@ -143,7 +142,7 @@ impl WorkspaceTree {
                 stat: Stat::new(&PathBuf::from(parents[0].clone())),
                 oid,
             });
-            workspace.insert(components[0].clone(), file);
+            workspace.insert(parents[0].clone(), file);
             return;
         }
 
@@ -194,7 +193,7 @@ impl WorkspaceTree {
 
     pub fn list_files(path: &PathBuf) -> Vec<File> {
         let ignored_files = WorkspaceTree::ignored_files().expect("failed to get ignored files");
-        WalkDir::new(path)
+        let mut files = WalkDir::new(path)
             .into_iter()
             .filter_map(|entry| entry.ok())
             .filter(|entry| {
@@ -227,7 +226,9 @@ impl WorkspaceTree {
                     oid: None,
                 })
             })
-            .collect::<Vec<File>>()
+            .collect::<Vec<File>>();
+        files.sort_by(|a, b| a.path.cmp(&b.path));
+        files
     }
     pub fn new(root: Option<&PathBuf>) -> Self {
         match root {
@@ -259,7 +260,10 @@ impl WorkspaceTree {
                             stat: file.stat.clone(),
                             oid: None,
                         });
-                        workspace.insert(file.name.clone(), file_entry);
+                        workspace.insert(
+                            file.path.as_os_str().to_str().unwrap().to_owned(),
+                            file_entry,
+                        );
                     }
                 }
                 WorkspaceTree { workspace }

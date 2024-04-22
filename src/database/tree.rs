@@ -45,7 +45,7 @@ impl Tree {
     }
 
     pub fn build_from_index(&mut self, index: &Index) {
-        for (path, entry) in &index.entries.workspace {
+        for (path, entry) in &index.entries {
             match entry {
                 FileOrDir::File(file) => {
                     self.entries
@@ -65,7 +65,6 @@ impl Tree {
             match value {
                 FileOrTree::Tree(tree) => {
                     tree.traverse(db)?;
-                    println!("storing tree");
                     db.store(tree)?;
                 }
                 _ => (),
