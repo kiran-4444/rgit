@@ -93,8 +93,8 @@ impl Storable for Tree {
                 FileOrTree::File(entry) => {
                     let mut output: Vec<&[u8]> = Vec::new();
 
-                    let stat = fs::metadata(&entry.path).expect("Failed to get file metadata");
-                    let is_executable = stat.permissions().mode() & 0o111 != 0;
+                    let stat = entry.stat.clone();
+                    let is_executable = stat.mode & 0o111 != 0;
                     if is_executable {
                         output.push("100755".as_bytes());
                     } else {
