@@ -50,10 +50,10 @@ pub fn initialize_git_dir(path: &Path) -> Result<()> {
     fs::create_dir_all(&creation_path.join("objects"))?;
 
     // Create the refs directory
-    fs::create_dir_all(&creation_path.join("refs"))?;
+    fs::create_dir_all(&creation_path.join("refs/heads"))?;
 
     // Create the HEAD file
-    fs::write(creation_path.join("HEAD"), "ref: refs/heads/master")?;
+    fs::write(creation_path.join("HEAD"), "ref: refs/heads/master\n")?;
 
     // Give the user a nice message
     let console_output = if if_exists {

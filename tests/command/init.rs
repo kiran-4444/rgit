@@ -12,6 +12,16 @@ fn test_init_with_no_args() {
     // check if objects directory is created
     assert!(std::path::Path::new(".rgit/objects").exists());
 
+    // check if refs directory is created
+    assert!(std::path::Path::new(".rgit/refs/heads").exists());
+
+    // check if HEAD file is created
+    assert!(std::path::Path::new(".rgit/HEAD").exists());
+
+    // check if the HEAD file contains the correct content
+    let head_content = std::fs::read_to_string(".rgit/HEAD").expect("Failed to read HEAD file");
+    assert_eq!(head_content, "ref: refs/heads/master\n");
+
     // remove the .rgit directory
     std::fs::remove_dir_all(".rgit").expect("Failed to remove .rgit directory");
 }
@@ -26,6 +36,17 @@ fn test_init_with_args() {
 
     // check if objects directory is created
     assert!(std::path::Path::new("sub_path/.rgit/objects").exists());
+
+    // check if refs directory is created
+    assert!(std::path::Path::new("sub_path/.rgit/refs/heads").exists());
+
+    // check if HEAD file is created
+    assert!(std::path::Path::new("sub_path/.rgit/HEAD").exists());
+
+    // check if the HEAD file contains the correct content
+    let head_content =
+        std::fs::read_to_string("sub_path/.rgit/HEAD").expect("Failed to read HEAD file");
+    assert_eq!(head_content, "ref: refs/heads/master\n");
 
     // remove the .rgit directory
     std::fs::remove_dir_all("sub_path/").expect("Failed to remove .rgit directory");
