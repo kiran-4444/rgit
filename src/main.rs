@@ -1,3 +1,4 @@
+#![feature(bufread_skip_until)]
 use anyhow::Result;
 use clap::Parser;
 use command::GitCMD;

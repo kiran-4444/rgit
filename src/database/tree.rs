@@ -1,6 +1,8 @@
 use anyhow::Result;
 use itertools::Itertools;
-use std::{collections::BTreeMap, fs, iter::zip, os::unix::fs::PermissionsExt};
+use std::{collections::BTreeMap, iter::zip};
+use colored::Colorize;
+
 
 use crate::{
     database::{storable::Storable, Database},
