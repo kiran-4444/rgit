@@ -3,15 +3,79 @@ use std::fs::{rename, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
 
+use crate::database::{Blob, Commit, Tree};
 use crate::{database::Storable, utils::compress_content, utils::hash_content};
 
 pub struct Database {
     pub object_store: PathBuf,
+    pub objects: Vec<String>,
+}
+
+#[derive(Debug)]
+enum ParsedContent {
+    BlobContent(Blob),
+    CommitContent(Commit),
+    TreeContent(Tree),
+}
+
+enum ObjectType {
+    Blob,
+    Commit,
+    Tree,
 }
 
 impl<'a> Database {
     pub fn new(object_store: PathBuf) -> Self {
-        Self { object_store }
+        Self {
+            object_store,
+            objects: Default::default(),
+        }
+    }
+
+    fn object_path(&self, name: &str) -> PathBuf {
+        PathBuf::from(&self.object_store)
+            .join(&name[0..2])
+            .join(&name[2..])
+    }
+
+    pub fn read_object(&self, oid: &str) -> Result<()> {
+        let data = std::fs::read(self.object_path(oid))?;
+        let mut decoder = flate2::read::ZlibDecoder::new(&data[..]);
+        let mut buffer = Vec::new();
+        decoder.read_to_end(&mut buffer)?;
+
+        let mut cursor = std::io::Cursor::new(buffer);
+        let mut header = Vec::new();
+        cursor.read_until(b'\0', &mut header)?;
+        let mut content = Vec::new();
+        cursor.read_to_end(&mut content)?;
+
+        let mut header_cursor = std::io::Cursor::new(header);
+        let mut object_type = Vec::new();
+        header_cursor.read_until(b' ', &mut object_type)?;
+        let mut object_size = Vec::new();
+        header_cursor.read_until(b'\0', &mut object_size)?;
+
+        let object_type = String::from_utf8(object_type)?;
+        let object_type = object_type.trim_end_matches(' ');
+
+        let object_size = String::from_utf8(object_size)?;
+        let object_size = object_size.trim_end_matches('\0').parse::<usize>()?;
+        dbg!(object_type, object_size);
+
+        let parsed_content = match object_type {
+            "blob" => ParsedContent::BlobContent(Blob::parse(oid.to_owned(), content)),
+            "commit" => ParsedContent::CommitContent(Commit::parse(oid.to_owned(), content)),
+            "tree" => ParsedContent::TreeContent(Tree::parse(oid.to_owned(), content)),
+
+            _ => {
+                return Err(anyhow::anyhow!("Unknown object type: {}", object_type));
+            }
+        };
+
+        dbg!(&parsed_content);
+
+        Ok(())
     }
 
     pub fn store<T>(&self, storable: &mut T) -> Result<()>

@@ -41,7 +41,7 @@ impl CommitCMD {
             parent.to_owned(),
             root.oid.expect("OID not found"),
             author,
-            &message,
+            message.clone(),
         );
         db.store(&mut commit)?;
 

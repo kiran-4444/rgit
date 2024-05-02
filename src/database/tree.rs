@@ -1,8 +1,10 @@
 use anyhow::Result;
 use itertools::Itertools;
-use std::{collections::BTreeMap, iter::zip};
-use colored::Colorize;
-
+use std::{
+    collections::BTreeMap,
+    io::{BufRead, Read},
+    iter::zip,
+};
 
 use crate::{
     database::{storable::Storable, Database},
@@ -28,6 +30,30 @@ impl Tree {
             oid: None,
             entries: BTreeMap::new(),
         }
+    }
+
+    pub fn parse(oid: String, content: Vec<u8>) -> Self {
+        let mut cursor = std::io::Cursor::new(content);
+
+        while !cursor.is_empty() {
+            let mut mode_and_name: Vec<u8> = Vec::new();
+            cursor.read_until(b'\0', &mut mode_and_name).unwrap();
+            dbg!(String::from_utf8(mode_and_name).unwrap());
+            let mut oid = vec![0; 20];
+            cursor.read_exact(&mut oid).unwrap();
+            let oid = hex::encode(oid);
+            dbg!(&oid);
+        }
+
+        // let mode_and_name: Vec<&[u8]> = buffer.split(|&x| x == 0).collect();
+
+        // for i in mode_and_name {
+        //     dbg!(String::from_utf8(i.to_vec()));
+        // }
+
+        // dbg!(&lines);
+
+        todo!()
     }
 
     pub fn build(&mut self, dir: Dir) {

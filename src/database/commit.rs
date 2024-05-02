@@ -1,16 +1,16 @@
 use crate::{database::storable::Storable, database::Author};
 
 #[derive(Debug, Clone)]
-pub struct Commit<'a> {
+pub struct Commit {
     pub parent: Option<String>,
     pub oid: Option<String>,
     pub tree: String,
-    pub author: Author<'a>,
-    pub message: &'a str,
+    pub author: Author,
+    pub message: String,
 }
 
-impl<'a> Commit<'a> {
-    pub fn new(parent: Option<String>, tree: String, author: Author<'a>, message: &'a str) -> Self {
+impl Commit {
+    pub fn new(parent: Option<String>, tree: String, author: Author, message: String) -> Self {
         Self {
             parent,
             oid: None,
@@ -19,9 +19,29 @@ impl<'a> Commit<'a> {
             message,
         }
     }
+
+    pub fn parse(oid: String, content: Vec<u8>) -> Self {
+        let content = String::from_utf8(content).unwrap();
+        let mut lines = content.lines();
+        let tree = lines.next().unwrap().split(' ').last().unwrap();
+        let parent = lines
+            .next()
+            .map(|line| line.split(' ').last().unwrap())
+            .map(|parent| parent.to_owned());
+        let author = Author::parse(lines.next().clone().unwrap());
+        let message = lines.skip(2).collect::<Vec<_>>().join("\n");
+
+        Self {
+            parent,
+            oid: Some(oid),
+            tree: tree.to_owned(),
+            author,
+            message,
+        }
+    }
 }
 
-impl<'a> Storable for Commit<'a> {
+impl Storable for Commit {
     fn set_oid(&mut self, oid: String) {
         self.oid = Some(oid);
     }
