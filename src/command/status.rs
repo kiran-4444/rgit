@@ -25,10 +25,10 @@ impl StatusCMD {
             let git_path = root_path.join(".rgit");
             let refs = Refs::new(git_path.clone());
             let parent = refs.read_head();
-            let mut database = Database::new(git_path.join("objects"));
+            let database = Database::new(git_path.join("objects"));
             let oid = self.oid;
-            database.read_object(&oid)?;
-            return Ok(());
+            let tree = database.read_object(&oid)?;
+            dbg!(tree);
         }
         let root_path = get_root_path()?;
         let workspace = WorkspaceTree::new(Some(&root_path));

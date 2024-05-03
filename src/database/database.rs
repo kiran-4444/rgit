@@ -12,7 +12,7 @@ pub struct Database {
 }
 
 #[derive(Debug)]
-enum ParsedContent {
+pub enum ParsedContent {
     BlobContent(Blob),
     CommitContent(Commit),
     TreeContent(Tree),
@@ -32,7 +32,7 @@ impl<'a> Database {
             .join(&name[2..])
     }
 
-    pub fn read_object(&self, oid: &str) -> Result<()> {
+    pub fn read_object(&self, oid: &str) -> Result<ParsedContent> {
         let data = std::fs::read(self.object_path(oid))?;
         let mut decoder = flate2::read::ZlibDecoder::new(&data[..]);
         let mut buffer = Vec::new();
@@ -69,7 +69,7 @@ impl<'a> Database {
 
         dbg!(&parsed_content);
 
-        Ok(())
+        Ok(parsed_content)
     }
 
     pub fn store<T>(&self, storable: &mut T) -> Result<()>
