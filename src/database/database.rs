@@ -18,12 +18,6 @@ enum ParsedContent {
     TreeContent(Tree),
 }
 
-enum ObjectType {
-    Blob,
-    Commit,
-    Tree,
-}
-
 impl<'a> Database {
     pub fn new(object_store: PathBuf) -> Self {
         Self {
@@ -66,7 +60,7 @@ impl<'a> Database {
         let parsed_content = match object_type {
             "blob" => ParsedContent::BlobContent(Blob::parse(oid.to_owned(), content)),
             "commit" => ParsedContent::CommitContent(Commit::parse(oid.to_owned(), content)),
-            "tree" => ParsedContent::TreeContent(Tree::parse(oid.to_owned(), content)),
+            "tree" => ParsedContent::TreeContent(Tree::parse(oid.to_owned(), content, None)),
 
             _ => {
                 return Err(anyhow::anyhow!("Unknown object type: {}", object_type));
