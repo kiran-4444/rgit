@@ -5,11 +5,10 @@ use clap::Parser;
 use colored::Colorize;
 
 use crate::{
-    database::{Database, FlatTree, ParsedContent},
+    database::Database,
     index::{FlatIndex, Index},
-    refs::Refs,
     utils::{decompress_content, get_root_path, write_to_stdout},
-    workspace::{self, WorkspaceTree},
+    workspace::WorkspaceTree,
 };
 
 #[derive(Parser, Debug, PartialEq)]
@@ -19,31 +18,8 @@ impl StatusCMD {
     pub fn run(self) -> Result<()> {
         let root_path = get_root_path()?;
         let git_path = root_path.join(".rgit");
-        let refs = Refs::new(git_path.clone());
-        let parent = refs.read_head();
-        let flat_commit_tree = match parent {
-            Some(oid) => {
-                let database = Database::new(git_path.join("objects"));
-                let commit = database.read_object(&oid).unwrap();
-                match commit {
-                    ParsedContent::CommitContent(commit) => {
-                        let tree_oid = commit.tree;
-                        let tree = database.read_object(&tree_oid).unwrap();
-                        if let ParsedContent::TreeContent(tree) = tree {
-                            tree
-                        } else {
-                            panic!("should not happen")
-                        }
-                    }
-                    _ => {
-                        panic!("should not happen")
-                    }
-                }
-            }
-            None => FlatTree {
-                entries: Default::default(),
-            },
-        };
+        let database = Database::new(git_path.join("objects"));
+        let flat_commit_tree = database.read_head()?;
 
         let workspace = WorkspaceTree::new(Some(&root_path));
         let mut index = Index::new(root_path.join(".rgit").join("index"));
@@ -58,7 +34,25 @@ impl StatusCMD {
         };
         Index::flatten_entries(&index.entries, &mut flat_index);
 
-        // dbg!(&flat_commit_tree, &flat_workspace, &flat_index);
+        let untracked_deleted_files = flat_commit_tree
+            .entries
+            .iter()
+            .filter(|(path, _)| {
+                !flat_workspace.entries.contains_key(*path)
+                    && flat_index.entries.contains_key(*path)
+            })
+            .map(|(path, _)| path)
+            .collect::<Vec<_>>();
+
+        let tracked_deleted_files = flat_commit_tree
+            .entries
+            .iter()
+            .filter(|(path, _)| {
+                !flat_workspace.entries.contains_key(*path)
+                    && !flat_index.entries.contains_key(*path)
+            })
+            .map(|(path, _)| path)
+            .collect::<Vec<_>>();
 
         let untracked_files = flat_workspace
             .entries
@@ -77,6 +71,7 @@ impl StatusCMD {
             .entries
             .iter()
             .filter(|(path, _)| {
+                // if there's nothing in the commit tree, then all the files are staged
                 if !flat_commit_tree.entries.contains_key(*path) {
                     return true;
                 }
@@ -92,6 +87,10 @@ impl StatusCMD {
             .collect::<Vec<_>>();
 
         write_to_stdout("Changes to be committed:")?;
+        for file in tracked_deleted_files.clone() {
+            let prompt = format!("Deleted: {}", file);
+            println!("{}", prompt.green());
+        }
         for file in staged_files.clone() {
             println!("{}", file.green());
         }
@@ -101,6 +100,9 @@ impl StatusCMD {
             .iter()
             .filter(|(path, _)| {
                 let commit_tree_entry = flat_commit_tree.entries.get(*path).unwrap();
+                if !flat_workspace.entries.contains_key(*path) {
+                    return false;
+                }
                 let workspace_entry = flat_workspace.entries.get(*path).unwrap();
                 let workspace_file_content = fs::read_to_string(&workspace_entry.path).unwrap();
                 let commit_entry_oid = commit_tree_entry.oid.as_ref().unwrap();
@@ -111,6 +113,10 @@ impl StatusCMD {
             .collect::<Vec<_>>();
 
         write_to_stdout("Changed not staged for commit:")?;
+        for file in untracked_deleted_files.clone() {
+            let prompt = format!("Deleted: {}", file);
+            println!("{}", prompt.red());
+        }
         for file in modified_files.clone() {
             println!("{}", file.red());
         }

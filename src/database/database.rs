@@ -4,6 +4,8 @@ use std::io::prelude::*;
 use std::path::PathBuf;
 
 use crate::database::{Blob, Commit, Tree};
+use crate::refs::Refs;
+use crate::utils::get_root_path;
 use crate::{database::Storable, utils::compress_content, utils::hash_content};
 
 use super::tree::FlatTree;
@@ -56,7 +58,7 @@ impl<'a> Database {
         let object_type = object_type.trim_end_matches(' ');
 
         let object_size = String::from_utf8(object_size)?;
-        let object_size = object_size.trim_end_matches('\0').parse::<usize>()?;
+        let _object_size = object_size.trim_end_matches('\0').parse::<usize>()?;
 
         let parsed_content = match object_type {
             "blob" => ParsedContent::BlobContent(Blob::parse(oid.to_owned(), content)),
@@ -74,6 +76,35 @@ impl<'a> Database {
         };
 
         Ok(parsed_content)
+    }
+
+    pub fn read_head(&self) -> Result<FlatTree> {
+        let root_part = get_root_path()?;
+        let git_path = root_part.join(".rgit");
+        let refs = Refs::new(git_path);
+        let parent = refs.read_head();
+
+        let tree = match parent {
+            Some(oid) => {
+                let commit = self.read_object(&oid).unwrap();
+                match commit {
+                    ParsedContent::CommitContent(commit) => {
+                        let tree_oid = commit.tree;
+                        let tree = self.read_object(&tree_oid).unwrap();
+                        match tree {
+                            ParsedContent::TreeContent(tree) => tree,
+                            _ => panic!("should not happen"),
+                        }
+                    }
+                    _ => panic!("should not happen"),
+                }
+            }
+            None => FlatTree {
+                entries: Default::default(),
+            },
+        };
+
+        Ok(tree)
     }
 
     pub fn store<T>(&self, storable: &mut T) -> Result<()>
