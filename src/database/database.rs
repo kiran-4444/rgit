@@ -6,6 +6,8 @@ use std::path::PathBuf;
 use crate::database::{Blob, Commit, Tree};
 use crate::{database::Storable, utils::compress_content, utils::hash_content};
 
+use super::tree::FlatTree;
+
 pub struct Database {
     pub object_store: PathBuf,
     pub objects: Vec<String>,
@@ -15,7 +17,7 @@ pub struct Database {
 pub enum ParsedContent {
     BlobContent(Blob),
     CommitContent(Commit),
-    TreeContent(Tree),
+    TreeContent(FlatTree),
 }
 
 impl<'a> Database {
@@ -55,19 +57,21 @@ impl<'a> Database {
 
         let object_size = String::from_utf8(object_size)?;
         let object_size = object_size.trim_end_matches('\0').parse::<usize>()?;
-        dbg!(object_type, object_size);
 
         let parsed_content = match object_type {
             "blob" => ParsedContent::BlobContent(Blob::parse(oid.to_owned(), content)),
             "commit" => ParsedContent::CommitContent(Commit::parse(oid.to_owned(), content)),
-            "tree" => ParsedContent::TreeContent(Tree::parse(oid.to_owned(), content, None)),
+            "tree" => {
+                let file_or_dir = Tree::parse(content, None);
+                ParsedContent::TreeContent(FlatTree {
+                    entries: file_or_dir,
+                })
+            }
 
             _ => {
                 return Err(anyhow::anyhow!("Unknown object type: {}", object_type));
             }
         };
-
-        dbg!(&parsed_content);
 
         Ok(parsed_content)
     }

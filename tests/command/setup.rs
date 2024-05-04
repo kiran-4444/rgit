@@ -15,6 +15,9 @@ pub fn setup_rgit(path: &PathBuf) -> Result<()> {
     cmd.current_dir(&path).arg("init").assert().success();
     let rgitignore_path = path.join(".rgitignore");
     write(rgitignore_path, ".git/").expect("Failed to write .rgitignore file");
+
+    std::env::set_var("RGIT_AUTHOR_NAME", "Test Author");
+    std::env::set_var("RGIT_AUTHOR_EMAIL", "test@example.com");
     Ok(())
 }
 

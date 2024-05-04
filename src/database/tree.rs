@@ -26,6 +26,11 @@ pub struct Tree {
     pub entries: BTreeMap<String, FileOrTree>,
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct FlatTree {
+    pub entries: BTreeMap<String, File>,
+}
+
 impl Tree {
     pub fn new() -> Self {
         Tree {
@@ -34,7 +39,7 @@ impl Tree {
         }
     }
 
-    pub fn parse(oid: String, content: Vec<u8>, current_parent: Option<String>) -> Self {
+    pub fn parse(content: Vec<u8>, current_parent: Option<String>) -> BTreeMap<String, File> {
         let mut cursor = std::io::Cursor::new(content);
         let mut entries = BTreeMap::new();
 
@@ -63,8 +68,8 @@ impl Tree {
                     Some(parent) => format!("{}/{}", parent, name),
                     None => name.to_owned(),
                 };
-                let child_tree = Tree::parse(oid.clone(), content, Some(parent_path.to_owned()));
-                entries.insert(name.to_owned(), FileOrTree::Tree(child_tree));
+                let child_tree = Tree::parse(content, Some(parent_path.to_owned()));
+                entries.extend(child_tree);
             } else {
                 let path = match &current_parent {
                     Some(parent) => format!("{}/{}", parent, name),
@@ -72,18 +77,14 @@ impl Tree {
                 };
                 let file = File {
                     name: name.to_owned(),
-                    path: PathBuf::from(path),
+                    path: PathBuf::from(path.clone()),
                     stat: Default::default(),
                     oid: Some(oid),
                 };
-                entries.insert(name.to_owned(), FileOrTree::File(file));
+                entries.insert(path, file);
             }
         }
-        Tree {
-            oid: Some(oid),
-            entries,
-        }
-        // entries
+        entries
     }
 
     pub fn build(&mut self, dir: Dir) {
