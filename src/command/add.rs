@@ -56,7 +56,6 @@ impl AddCMD {
                 if root_path.join(file).exists() {
                     WorkspaceTree::list_files(&root_path.join(file))
                 } else {
-                    dbg!(file, &flat_workspace, &flat_index, &flat_commit_tree);
                     if !flat_workspace.entries.contains_key(file)
                         && flat_index.entries.contains_key(file)
                         && flat_commit_tree.entries.contains_key(file)

@@ -94,7 +94,7 @@ k/l/m/q.txt
 l.txt
 run.sh
 Changes to be committed:
-a.txt
+new file: a.txt
 Changed not staged for commit:";
 
     let mut cmd = get_rgit_cmd();
@@ -144,7 +144,7 @@ l.txt
 run.sh
 Changes to be committed:
 Changed not staged for commit:
-a.txt";
+modified: a.txt";
 
     let mut cmd = get_rgit_cmd();
     cmd.current_dir(&temp_dir).arg("status").assert().success();
@@ -173,7 +173,7 @@ k/l/m/q.txt
 l.txt
 run.sh
 Changes to be committed:
-a.txt
+modified: a.txt
 Changed not staged for commit:";
 
     let mut cmd = get_rgit_cmd();
@@ -253,7 +253,7 @@ l.txt
 run.sh
 Changes to be committed:
 Changed not staged for commit:
-Deleted: a.txt";
+deleted: a.txt";
 
     let mut cmd = get_rgit_cmd();
     cmd.current_dir(&temp_dir).arg("status").assert().success();
@@ -282,7 +282,7 @@ k/l/m/q.txt
 l.txt
 run.sh
 Changes to be committed:
-Deleted: a.txt
+deleted: a.txt
 Changed not staged for commit:";
 
     let mut cmd = get_rgit_cmd();
@@ -293,4 +293,155 @@ Changed not staged for commit:";
         String::from_utf8_lossy(&output.stdout).trim(),
         expected_output
     );
+}
+
+#[test]
+fn test_modify_add_delete_add_status() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+    setup_fs(&temp_dir).expect("Failed to setup fs");
+    setup_rgit(&temp_dir.path().to_path_buf()).expect("Failed to setup rgit");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Initial commit")
+        .assert()
+        .success();
+
+    write(temp_dir.path().join("a.txt"), "modified")?;
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    fs::remove_file(temp_dir.path().join("a.txt")).expect("Failed to remove file");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir).arg("status").assert().success();
+
+    let expected_output = "Untracked files:
+.rgitignore
+b.txt
+c.txt
+d.txt
+f/g.txt
+k/l/m/o.txt
+k/l/m/q.txt
+l.txt
+run.sh
+Changes to be committed:
+modified: a.txt
+Changed not staged for commit:
+deleted: a.txt";
+
+    let output = cmd.output().expect("Failed to run command");
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        expected_output
+    );
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    let expected_output = "Untracked files:
+.rgitignore
+b.txt
+c.txt
+d.txt
+f/g.txt
+k/l/m/o.txt
+k/l/m/q.txt
+l.txt
+run.sh
+Changes to be committed:
+deleted: a.txt
+Changed not staged for commit:";
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir).arg("status").assert().success();
+
+    let output = cmd.output().expect("Failed to run command");
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        expected_output
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_delete_add_create_new_status_add_status() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+    setup_fs(&temp_dir).expect("Failed to setup fs");
+    setup_rgit(&temp_dir.path().to_path_buf()).expect("Failed to setup rgit");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Initial commit")
+        .assert()
+        .success();
+
+    fs::remove_file(temp_dir.path().join("a.txt")).expect("Failed to remove file");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    write(temp_dir.path().join("a.txt"), "a")?;
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir).arg("status").assert().success();
+
+    let expected_output = "Untracked files:
+.rgitignore
+a.txt
+b.txt
+c.txt
+d.txt
+f/g.txt
+k/l/m/o.txt
+k/l/m/q.txt
+l.txt
+run.sh
+Changes to be committed:
+deleted: a.txt
+Changed not staged for commit:";
+
+    let output = cmd.output().expect("Failed to run command");
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        expected_output
+    );
+
+    Ok(())
 }
