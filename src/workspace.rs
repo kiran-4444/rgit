@@ -8,44 +8,6 @@ use std::path::PathBuf;
 use crate::index::Stat;
 use crate::utils::get_root_path;
 
-pub trait Addable {
-    fn add(&mut self, path: &PathBuf, oid: String);
-}
-
-impl Addable for WorkspaceTree {
-    fn add(&mut self, path: &PathBuf, oid: String) {
-        let files = WorkspaceTree::list_files(path);
-        for file in files {
-            let parents = FileOrDir::parent_directories(&file.path)
-                .expect("failed to get parent directories");
-            let path_components =
-                FileOrDir::components(&file.path).expect("failed to get parent components");
-            if parents.len() > 1 {
-                let dir_entry = FileOrDir::Dir(Dir {
-                    name: parents[0].clone(),
-                    path: PathBuf::from(parents[0].clone()),
-                    children: BTreeMap::new(),
-                });
-                WorkspaceTree::build(
-                    dir_entry,
-                    parents,
-                    path_components,
-                    &mut self.workspace,
-                    None,
-                );
-            } else {
-                let file_entry = FileOrDir::File(File {
-                    name: file.name.clone(),
-                    path: file.path.clone(),
-                    stat: file.stat.clone(),
-                    oid: Some(oid.clone()),
-                });
-                self.workspace.insert(file.name.clone(), file_entry);
-            }
-        }
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {
     pub name: String,
