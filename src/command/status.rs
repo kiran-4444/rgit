@@ -35,16 +35,6 @@ impl StatusCMD {
         };
         Index::flatten_entries(&index.entries, &mut flat_index);
 
-        let tracked_deleted_files = flat_commit_tree
-            .entries
-            .iter()
-            .filter(|(path, _)| {
-                !flat_index.entries.contains_key(*path)
-                    && flat_commit_tree.entries.contains_key(*path)
-            })
-            .map(|(path, _)| path)
-            .collect::<Vec<_>>();
-
         let untracked_files = self.untracked_files(&flat_workspace, &flat_index, &flat_commit_tree);
         write_to_stdout("Untracked files:")?;
         for (file, _) in untracked_files {
@@ -58,33 +48,7 @@ impl StatusCMD {
             println!("{}: {}", status.green(), file.green());
         }
 
-        let modified_files = flat_commit_tree
-            .entries
-            .iter()
-            .filter_map(|(path, _)| {
-                // if there's no key in the workspace, then this will be a deleted file
-                if !flat_workspace.entries.contains_key(path) {
-                    if flat_index.entries.contains_key(path) {
-                        return Some((path.clone(), "deleted"));
-                    }
-                    return None;
-                }
-                let workspace_entry = flat_workspace.entries.get(path).unwrap();
-                let workspace_entry_content = fs::read_to_string(&workspace_entry.path).unwrap();
-
-                if !flat_index.entries.contains_key(path) {
-                    return None;
-                }
-
-                let index_entry = flat_index.entries.get(path).unwrap();
-                let index_entry_oid = index_entry.oid.as_ref().unwrap();
-                let index_entry_content = decompress_content(&index_entry_oid).unwrap();
-                if index_entry_content != workspace_entry_content {
-                    return Some((path.clone(), "modified"));
-                }
-                None
-            })
-            .collect::<BTreeMap<_, _>>();
+        let modified_files = self.modified_files(&flat_workspace, &flat_index, &flat_commit_tree);
 
         write_to_stdout("Changed not staged for commit:")?;
         for (file, status) in modified_files.clone() {
