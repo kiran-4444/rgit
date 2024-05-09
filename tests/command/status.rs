@@ -443,6 +443,36 @@ Changed not staged for commit:";
         expected_output
     );
 
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    let expected_output = "Untracked files:
+.rgitignore
+b.txt
+c.txt
+d.txt
+f/g.txt
+k/l/m/o.txt
+k/l/m/q.txt
+l.txt
+run.sh
+Changes to be committed:
+Changed not staged for commit:";
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir).arg("status").assert().success();
+
+    let output = cmd.output().expect("Failed to run command");
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        expected_output
+    );
+
     Ok(())
 }
 
