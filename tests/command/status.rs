@@ -445,3 +445,63 @@ Changed not staged for commit:";
 
     Ok(())
 }
+
+#[test]
+fn test_modify_add_modify_status() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+    setup_fs(&temp_dir).expect("Failed to setup fs");
+    setup_rgit(&temp_dir.path().to_path_buf()).expect("Failed to setup rgit");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Initial commit")
+        .assert()
+        .success();
+
+    write(temp_dir.path().join("a.txt"), "modified").expect("Failed to write to file");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    write(temp_dir.path().join("a.txt"), "modified again").expect("Failed to write to file");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir).arg("status").assert().success();
+
+    let expected_output = "Untracked files:
+.rgitignore
+b.txt
+c.txt
+d.txt
+f/g.txt
+k/l/m/o.txt
+k/l/m/q.txt
+l.txt
+run.sh
+Changes to be committed:
+modified: a.txt
+Changed not staged for commit:
+modified: a.txt";
+
+    let output = cmd.output().expect("Failed to run command");
+
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        expected_output
+    );
+
+    Ok(())
+}
