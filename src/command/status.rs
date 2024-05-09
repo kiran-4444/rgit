@@ -7,7 +7,7 @@ use colored::Colorize;
 use crate::{
     database::{Database, FlatTree},
     index::{FlatIndex, Index},
-    utils::{decompress_content, get_root_path, write_to_stdout},
+    utils::{decompress_content, get_root_path, write_to_stdout, write_to_stdout_color},
     workspace::WorkspaceTree,
 };
 
@@ -35,24 +35,26 @@ impl StatusCMD {
         };
         Index::flatten_entries(&index.entries, &mut flat_index);
 
-        let untracked_files = self.untracked_files(&flat_workspace, &flat_index, &flat_commit_tree);
+        let untracked_files = self.untracked_files(&flat_workspace, &flat_index);
         write_to_stdout("Untracked files:")?;
         for (file, _) in untracked_files {
-            println!("{}", file.red());
+            write_to_stdout_color(&file.red())?;
         }
 
-        let staged_files = self.tracked_files(&flat_workspace, &flat_index, &flat_commit_tree);
+        let staged_files = self.tracked_files(&flat_index, &flat_commit_tree);
 
         write_to_stdout("Changes to be committed:")?;
         for (file, status) in staged_files.clone() {
-            println!("{}: {}", status.green(), file.green());
+            let message = format!("{}: {}", status.green(), file.green());
+            write_to_stdout(&message)?;
         }
 
         let modified_files = self.modified_files(&flat_workspace, &flat_index, &flat_commit_tree);
 
         write_to_stdout("Changed not staged for commit:")?;
         for (file, status) in modified_files.clone() {
-            println!("{}: {}", status.red(), file.red());
+            let message = format!("{}: {}", status.red(), file.red());
+            write_to_stdout(&message)?;
         }
 
         Ok(())
@@ -62,12 +64,7 @@ impl StatusCMD {
     /// If a file is in the index but not in the commit tree, it's a new file
     /// If a file is in the index and the commit tree but the content is different, it's a modified file
     /// If a file is in the commit tree but not in the index, it's a deleted file
-    fn tracked_files(
-        &self,
-        workspace: &FlatIndex,
-        index: &FlatIndex,
-        commit_tree: &FlatTree,
-    ) -> BTreeMap<String, String> {
+    fn tracked_files(&self, index: &FlatIndex, commit_tree: &FlatTree) -> BTreeMap<String, String> {
         let mut tracked_files = BTreeMap::new();
         for (path, _) in index.entries.iter() {
             if !commit_tree.entries.contains_key(path) {
@@ -103,7 +100,6 @@ impl StatusCMD {
         &self,
         workspace: &FlatIndex,
         index: &FlatIndex,
-        commit_tree: &FlatTree,
     ) -> BTreeMap<String, String> {
         let mut untracked_files = BTreeMap::new();
         for (path, _) in workspace.entries.iter() {

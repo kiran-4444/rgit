@@ -1,4 +1,5 @@
 use anyhow::Result;
+use colored::ColoredString;
 use flate2::{read::ZlibDecoder, write::ZlibEncoder, Compression};
 use sha1::{Digest, Sha1};
 use std::io::prelude::*;
@@ -16,6 +17,13 @@ pub fn write_to_stdout(content: &str) -> Result<()> {
 pub fn write_to_stderr(content: &str) -> Result<()> {
     let stderr = std::io::stderr();
     let mut handle = stderr.lock();
+    writeln!(handle, "{}", content)?;
+    Ok(())
+}
+
+pub fn write_to_stdout_color(content: &ColoredString) -> Result<()> {
+    let stdout = std::io::stdout();
+    let mut handle = stdout.lock();
     writeln!(handle, "{}", content)?;
     Ok(())
 }
