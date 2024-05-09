@@ -23,6 +23,26 @@ static REGULAR_MODE: u32 = 0o100644;
 static EXECUTABLE_MODE: u32 = 0o100755;
 static MAX_PATH_SIZE: usize = 0xfff;
 
+impl Default for Stat {
+    fn default() -> Self {
+        Self {
+            ino: 0,
+            size: 0,
+            mode: 0,
+            uid: 0,
+            gid: 0,
+            ctime: 0,
+            mtime: 0,
+            ctime_nsec: 0,
+            mtime_nsec: 0,
+            dev: 0,
+            flags: 0,
+            oid: None,
+            path: PathBuf::new(),
+        }
+    }
+}
+
 impl Stat {
     pub fn new(path: &PathBuf) -> Self {
         let stat = path.metadata().expect("failed to get metadata");

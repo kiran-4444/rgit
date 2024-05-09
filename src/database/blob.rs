@@ -10,6 +10,14 @@ impl Blob {
     pub fn new(data: String) -> Self {
         Self { oid: None, data }
     }
+
+    pub fn parse(oid: String, content: Vec<u8>) -> Self {
+        let content = String::from_utf8(content).unwrap();
+        Self {
+            oid: Some(oid),
+            data: content,
+        }
+    }
 }
 
 impl Storable for Blob {

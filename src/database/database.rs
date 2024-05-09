@@ -3,15 +3,108 @@ use std::fs::{rename, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
 
+use crate::database::{Blob, Commit, Tree};
+use crate::refs::Refs;
+use crate::utils::get_root_path;
 use crate::{database::Storable, utils::compress_content, utils::hash_content};
+
+use super::tree::FlatTree;
 
 pub struct Database {
     pub object_store: PathBuf,
+    pub objects: Vec<String>,
+}
+
+#[derive(Debug)]
+pub enum ParsedContent {
+    BlobContent(Blob),
+    CommitContent(Commit),
+    TreeContent(FlatTree),
 }
 
 impl<'a> Database {
     pub fn new(object_store: PathBuf) -> Self {
-        Self { object_store }
+        Self {
+            object_store,
+            objects: Default::default(),
+        }
+    }
+
+    fn object_path(&self, name: &str) -> PathBuf {
+        PathBuf::from(&self.object_store)
+            .join(&name[0..2])
+            .join(&name[2..])
+    }
+
+    pub fn read_object(&self, oid: &str) -> Result<ParsedContent> {
+        let data = std::fs::read(self.object_path(oid))?;
+        let mut decoder = flate2::read::ZlibDecoder::new(&data[..]);
+        let mut buffer = Vec::new();
+        decoder.read_to_end(&mut buffer)?;
+
+        let mut cursor = std::io::Cursor::new(buffer);
+        let mut header = Vec::new();
+        cursor.read_until(b'\0', &mut header)?;
+        let mut content = Vec::new();
+        cursor.read_to_end(&mut content)?;
+
+        let mut header_cursor = std::io::Cursor::new(header);
+        let mut object_type = Vec::new();
+        header_cursor.read_until(b' ', &mut object_type)?;
+        let mut object_size = Vec::new();
+        header_cursor.read_until(b'\0', &mut object_size)?;
+
+        let object_type = String::from_utf8(object_type)?;
+        let object_type = object_type.trim_end_matches(' ');
+
+        let object_size = String::from_utf8(object_size)?;
+        let _object_size = object_size.trim_end_matches('\0').parse::<usize>()?;
+
+        let parsed_content = match object_type {
+            "blob" => ParsedContent::BlobContent(Blob::parse(oid.to_owned(), content)),
+            "commit" => ParsedContent::CommitContent(Commit::parse(oid.to_owned(), content)),
+            "tree" => {
+                let file_or_dir = Tree::parse(content, None);
+                ParsedContent::TreeContent(FlatTree {
+                    entries: file_or_dir,
+                })
+            }
+
+            _ => {
+                return Err(anyhow::anyhow!("Unknown object type: {}", object_type));
+            }
+        };
+
+        Ok(parsed_content)
+    }
+
+    pub fn read_head(&self) -> Result<FlatTree> {
+        let root_part = get_root_path()?;
+        let git_path = root_part.join(".rgit");
+        let refs = Refs::new(git_path);
+        let parent = refs.read_head();
+
+        let tree = match parent {
+            Some(oid) => {
+                let commit = self.read_object(&oid).unwrap();
+                match commit {
+                    ParsedContent::CommitContent(commit) => {
+                        let tree_oid = commit.tree;
+                        let tree = self.read_object(&tree_oid).unwrap();
+                        match tree {
+                            ParsedContent::TreeContent(tree) => tree,
+                            _ => panic!("should not happen"),
+                        }
+                    }
+                    _ => panic!("should not happen"),
+                }
+            }
+            None => FlatTree {
+                entries: Default::default(),
+            },
+        };
+
+        Ok(tree)
     }
 
     pub fn store<T>(&self, storable: &mut T) -> Result<()>

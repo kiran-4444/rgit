@@ -77,6 +77,11 @@ impl Index {
         }
     }
 
+    pub fn remove(&mut self, file: &MyFile) {
+        self.entries.remove(file.path.to_str().unwrap());
+        self.changed = true;
+    }
+
     pub fn add(&mut self, file: &MyFile) {
         self.discard_conflicts(file);
         let parents =
