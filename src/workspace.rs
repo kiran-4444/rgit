@@ -2,11 +2,11 @@ use anyhow::{anyhow, Result};
 use walkdir::WalkDir;
 
 use std::collections::BTreeMap;
-use std::fs::{self};
+use std::fs::{self, read};
 use std::path::PathBuf;
 
 use crate::index::Stat;
-use crate::utils::get_root_path;
+use crate::utils::{get_root_path, hash_content};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {
@@ -98,11 +98,15 @@ impl WorkspaceTree {
         oid: Option<String>,
     ) {
         if parents.len() == 1 {
+            let content =
+                fs::read_to_string(PathBuf::from(parents[0].clone())).expect("failed to read file");
+            let content = format!("{} {}\0{}", "blob", content.len(), content);
+            let oid = hash_content(&content);
             let file = FileOrDir::File(File {
                 name: components[0].clone(),
                 path: PathBuf::from(parents[0].clone()),
                 stat: Stat::new(&PathBuf::from(parents[0].clone())),
-                oid,
+                oid: Some(oid),
             });
             workspace.insert(parents[0].clone(), file);
             return;
@@ -216,11 +220,14 @@ impl WorkspaceTree {
                             None,
                         );
                     } else {
+                        let content = fs::read_to_string(&file.path).expect("failed to read file");
+                        let content = format!("{} {}\0{}", "blob", content.len(), content);
+                        let oid = hash_content(&content);
                         let file_entry = FileOrDir::File(File {
                             name: file.name.clone(),
                             path: file.path.clone(),
                             stat: file.stat.clone(),
-                            oid: None,
+                            oid: Some(oid),
                         });
                         workspace.insert(
                             file.path.as_os_str().to_str().unwrap().to_owned(),

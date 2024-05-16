@@ -1,19 +1,30 @@
+use colored::{ColoredString, Colorize};
 use std::ops::{Index, IndexMut};
 
-fn main() {
-    let a = std::env::args().nth(1).unwrap();
-    let b = std::env::args().nth(2).unwrap();
-    let a_content = std::fs::read_to_string(&a).unwrap();
-    let b_content = std::fs::read_to_string(&b).unwrap();
-    let a_lines = a_content.lines().collect::<Vec<_>>();
-    let b_lines = b_content.lines().collect::<Vec<_>>();
-    let ans = diff(&a_lines, &b_lines);
-    let ans = backtrack(ans.0, &a_lines, &b_lines);
-    let ans = render(&a_lines, &b_lines, ans);
-    println!("{}", ans);
+pub struct Myres {
+    pub a: String,
+    pub b: String,
 }
 
-fn render(a_lines: &Vec<&str>, b_lines: &Vec<&str>, ans: Vec<(i32, i32, i32, i32)>) -> String {
+impl Myres {
+    pub fn new(a: String, b: String) -> Self {
+        Self { a, b }
+    }
+
+    pub fn diff(&self) -> Vec<ColoredString> {
+        let a_lines: Vec<&str> = self.a.lines().collect();
+        let b_lines: Vec<&str> = self.b.lines().collect();
+        let trace = diff(&a_lines, &b_lines);
+        let ans = backtrack(trace.0, &a_lines, &b_lines);
+        render(&a_lines, &b_lines, ans)
+    }
+}
+
+fn render(
+    a_lines: &Vec<&str>,
+    b_lines: &Vec<&str>,
+    ans: Vec<(i32, i32, i32, i32)>,
+) -> Vec<ColoredString> {
     let mut diff = vec![];
 
     for (prev_x, prev_y, x, y) in ans {
@@ -27,16 +38,16 @@ fn render(a_lines: &Vec<&str>, b_lines: &Vec<&str>, ans: Vec<(i32, i32, i32, i32
         }
 
         if x == prev_x {
-            diff.push(format!("+ {}", b_line));
+            diff.push(format!("+ {}", b_line).green());
         } else if y == prev_y {
-            diff.push(format!("- {}", a_line));
+            diff.push(format!("- {}", a_line).red());
         } else {
-            diff.push(format!("  {}", a_line));
+            diff.push(format!("  {}", a_line).normal());
         }
     }
 
     diff.reverse();
-    diff.join("\n")
+    diff
 }
 
 fn backtrack(

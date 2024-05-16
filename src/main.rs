@@ -6,6 +6,7 @@ use std::env;
 
 mod command;
 mod database;
+mod diff;
 mod index;
 mod lockfile;
 mod refs;

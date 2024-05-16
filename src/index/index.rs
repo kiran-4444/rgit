@@ -128,12 +128,7 @@ impl Index {
                     );
                 }
                 FileOrDir::Dir(dir) => {
-                    // let mut dir_entries: BTreeMap<String, FileOrDir> = BTreeMap::new();
                     Index::flatten_entries(&dir.children, flat_index);
-                    // flat_index.entries.insert(
-                    //     dir.path.as_os_str().to_str().unwrap().to_owned().clone(),
-                    //     FileOrDir::Dir(dir.clone()),
-                    // );
                 }
             }
         }
