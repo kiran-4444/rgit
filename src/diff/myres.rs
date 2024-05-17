@@ -14,6 +14,7 @@ impl Myres {
     pub fn diff(&self) -> Vec<ColoredString> {
         let a_lines: Vec<&str> = self.a.lines().collect();
         let b_lines: Vec<&str> = self.b.lines().collect();
+
         let trace = diff(&a_lines, &b_lines);
         let ans = backtrack(trace.0, &a_lines, &b_lines);
         render(&a_lines, &b_lines, ans)
@@ -42,7 +43,7 @@ fn render(
         } else if y == prev_y {
             diff.push(format!("- {}", a_line).red());
         } else {
-            diff.push(format!("  {}", a_line).normal());
+            diff.push(format!("= {}", a_line).normal());
         }
     }
 
