@@ -1,4 +1,5 @@
 use anyhow::Result;
+use assert_cmd::output;
 use clap::Parser;
 use colored::Colorize;
 use std::fs;
@@ -90,16 +91,29 @@ impl DiffCMD {
 
         let null_path = PathBuf::from("/dev/null");
 
-        println!("diff --git {} {}", a_path.display(), b_path.display());
-        println!("new file mode {}", b_mode);
+        let output = format!("diff --git {} {}", a_path.display(), b_path.display());
 
-        println!(
-            "index {}..{}",
+        println!("{}", output.bold());
+
+        let output = format!("old file mode {}", b_mode.bold());
+        println!("{}", output.bold());
+
+        let output = format!(
+            "index {}..{} {}",
             self.short_oid(&a_oid),
-            self.short_oid(&b_oid)
+            self.short_oid(&b_oid),
+            b_mode
         );
-        println!("--- {}", null_path.display());
-        println!("+++ {}", b_path.display());
+        println!("{}", output.bold());
+
+        let output = format!("--- {}\n+++ {}", null_path.display(), b_path.display());
+        println!("{}", output.bold());
+
+        let index_entry_oid = index_file.oid.as_ref().unwrap();
+        let index_entry_content = decompress_content(&index_entry_oid).unwrap();
+
+        let diff = Myres::new("".to_string(), index_entry_content);
+        diff.diff();
     }
 
     fn diff_file_deleted(&self, index_file: &File) {
@@ -119,15 +133,28 @@ impl DiffCMD {
 
         let null_path = PathBuf::from("/dev/null");
 
-        println!("diff --git {} {}", a_path.display(), b_path.display());
-        println!("deleted file mode {}", a_mode);
-        println!(
-            "index {}..{}",
+        let output = format!("diff --git {} {}", a_path.display(), b_path.display());
+        println!("{}", output.bold());
+
+        let output = format!("deleted file mode {}", a_mode.bold());
+        println!("{}", output.bold());
+
+        let output = format!(
+            "index {}..{} {}",
             self.short_oid(&a_oid),
-            self.short_oid(&b_oid)
+            self.short_oid(&b_oid),
+            a_mode
         );
-        println!("--- {}", a_path.display());
-        println!("+++ {}", null_path.display());
+        println!("{}", output.bold());
+
+        let output = format!("--- {}\n+++ {}", a_path.display(), null_path.display());
+        println!("{}", output.bold());
+
+        let index_entry_oid = index_file.oid.as_ref().unwrap();
+        let index_entry_content = decompress_content(&index_entry_oid).unwrap();
+
+        let diff = Myres::new(index_entry_content, "".to_string());
+        diff.diff();
     }
 
     fn diff_file_modified(&self, workspace_file: &File, index_file: &File) {
