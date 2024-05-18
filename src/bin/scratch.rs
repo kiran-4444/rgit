@@ -40,7 +40,38 @@ fn main() {
     let hunks = Hunk::filter(&mut edits.clone());
 
     for hunk in hunks {
-        println!("{}", hunk.header());
+        let (a_offset, b_offset) = hunk.header();
+
+        println!(
+            "@@ -{} +{} @@",
+            a_offset
+                .iter()
+                .map(|n| n.to_string())
+                .collect::<Vec<_>>()
+                .join(","),
+            b_offset
+                .iter()
+                .map(|n| n.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        );
+
+        for edit in hunk.edits {
+            match edit.edit_type {
+                EditType::Add => {
+                    println!(
+                        "{}",
+                        format!("+{}", edit.b_line.unwrap().line).green().bold()
+                    );
+                }
+                EditType::Remove => {
+                    println!("{}", format!("-{}", edit.a_line.unwrap().line).red().bold());
+                }
+                EditType::Equal => {
+                    println!("{}", format!(" {}", edit.a_line.unwrap().line));
+                }
+            }
+        }
     }
 }
 
@@ -62,35 +93,17 @@ impl<'a> Hunk<'a> {
         }
     }
 
-    fn header(&self) -> String {
+    fn header(&self) -> (Vec<usize>, Vec<usize>) {
         let a_offset = self.offsets_for(|edit| edit.a_line.clone(), self.a_start as usize);
         let b_offset = self.offsets_for(|edit| edit.b_line.clone(), self.b_start as usize);
 
-        format!(
-            "@@ -{} +{} @@",
-            a_offset
-                .iter()
-                .map(|n| n.to_string())
-                .collect::<Vec<_>>()
-                .join(","),
-            b_offset
-                .iter()
-                .map(|n| n.to_string())
-                .collect::<Vec<_>>()
-                .join(",")
-        )
+        (a_offset, b_offset)
     }
 
     fn offsets_for<F>(&self, line_type: F, default: usize) -> Vec<usize>
     where
         F: Fn(&Edit<'a>) -> Option<Line<'a>>,
     {
-        // let lines = self
-        //     .edits
-        //     .iter()
-        //     .filter_map(|edit| line_type(edit))
-        //     .collect();
-
         let lines = self
             .edits
             .iter()

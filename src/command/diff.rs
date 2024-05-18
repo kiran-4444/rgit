@@ -153,32 +153,36 @@ impl DiffCMD {
             "100644"
         };
 
-        println!("diff --git {} {}", a_path.display(), b_path.display());
+        let output = format!("diff --git {} {}", a_path.display(), b_path.display());
+
+        println!("{}", output.bold());
         if a_mode != b_mode {
-            println!("old mode {}", a_mode);
-            println!("new mode {}", b_mode);
+            println!("old mode {}", a_mode.bold());
+            println!("new mode {}", b_mode.bold());
         }
         if a_oid == b_oid {
             return;
         }
 
         if a_mode == b_mode {
-            println!(
+            let output = format!(
                 "index {}..{} {}",
                 self.short_oid(&a_oid),
                 self.short_oid(&b_oid),
                 a_mode
             );
+            println!("{}", output.bold());
         } else {
-            println!(
+            let output = format!(
                 "index {}..{}",
                 self.short_oid(&a_oid),
-                self.short_oid(&b_oid),
+                self.short_oid(&b_oid)
             );
+            println!("{}", output.bold());
         }
 
-        println!("--- {}", a_path.display());
-        println!("+++ {}", b_path.display());
+        let output = format!("--- {}\n+++ {}", a_path.display(), b_path.display());
+        println!("{}", output.bold());
 
         let workspace_entry_content = fs::read_to_string(&workspace_file.path).unwrap();
 
@@ -186,11 +190,7 @@ impl DiffCMD {
         let index_entry_content = decompress_content(&index_entry_oid).unwrap();
 
         let diff = Myres::new(index_entry_content, workspace_entry_content);
-        let changes = diff.diff();
-
-        for change in changes {
-            println!("{}", change);
-        }
+        diff.diff();
     }
 
     fn short_oid(&self, oid: &str) -> String {
