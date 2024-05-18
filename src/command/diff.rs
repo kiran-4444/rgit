@@ -1,17 +1,17 @@
 use anyhow::Result;
-use assert_cmd::output;
+
 use clap::Parser;
 use colored::Colorize;
 use std::fs;
-use std::{fmt::format, path::PathBuf};
+use std::{path::PathBuf};
 
 use crate::{
-    command::status::{modified_files, tracked_files, untracked_files},
-    database::{Database, FlatTree},
+    command::status::{modified_files, tracked_files},
+    database::{Database},
     diff::Myres,
     index::{FlatIndex, Index},
-    utils::{decompress_content, get_root_path, write_to_stdout, write_to_stdout_color},
-    workspace::{self, File, WorkspaceTree},
+    utils::{decompress_content, get_root_path},
+    workspace::{File, WorkspaceTree},
 };
 
 #[derive(Parser, Debug, PartialEq)]

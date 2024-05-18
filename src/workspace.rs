@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use walkdir::WalkDir;
 
 use std::collections::BTreeMap;
-use std::fs::{self, read};
+use std::fs::{self};
 use std::path::PathBuf;
 
 use crate::index::Stat;

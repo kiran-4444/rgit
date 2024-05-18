@@ -1,4 +1,4 @@
-use colored::{ColoredString, Colorize};
+use colored::{Colorize};
 use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
