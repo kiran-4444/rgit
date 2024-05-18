@@ -1,4 +1,4 @@
-use colored::Colorize;
+use colored::{ColoredString, Colorize};
 use std::ops::{Index, IndexMut};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -13,62 +13,68 @@ impl Line<'_> {
     }
 }
 
-fn main() {
-    let a = std::env::args().nth(1).unwrap();
-    let b = std::env::args().nth(2).unwrap();
-    let a_content = std::fs::read_to_string(&a).unwrap();
-    let b_content = std::fs::read_to_string(&b).unwrap();
-    let a_lines = a_content.lines().collect::<Vec<_>>();
-    let b_lines = b_content.lines().collect::<Vec<_>>();
+pub struct Myres {
+    pub a: String,
+    pub b: String,
+}
 
-    let a_lines = a_lines
-        .iter()
-        .enumerate()
-        .map(|(i, line)| Line::new(line, i as i32 + 1))
-        .collect::<Vec<_>>();
+impl Myres {
+    pub fn new(a: String, b: String) -> Self {
+        Self { a, b }
+    }
 
-    let b_lines = b_lines
-        .iter()
-        .enumerate()
-        .map(|(i, line)| Line::new(line, i as i32 + 1))
-        .collect::<Vec<_>>();
+    pub fn diff(&self) {
+        let a_lines: Vec<&str> = self.a.lines().collect();
+        let b_lines: Vec<&str> = self.b.lines().collect();
 
-    let ans = diff(&a_lines, &b_lines);
-    let ans = backtrack(ans.0, &a_lines, &b_lines);
-    let edits = render(&a_lines, &b_lines, ans);
+        let a_lines = a_lines
+            .iter()
+            .enumerate()
+            .map(|(i, line)| Line::new(line, i as i32 + 1))
+            .collect::<Vec<_>>();
 
-    let hunks = Hunk::filter(&mut edits.clone());
+        let b_lines = b_lines
+            .iter()
+            .enumerate()
+            .map(|(i, line)| Line::new(line, i as i32 + 1))
+            .collect::<Vec<_>>();
 
-    for hunk in hunks {
-        let (a_offset, b_offset) = hunk.header();
+        let trace = diff(&a_lines, &b_lines);
+        let ans = backtrack(trace.0, &a_lines, &b_lines);
+        let edits = render(&a_lines, &b_lines, ans);
 
-        println!(
-            "@@ -{} +{} @@",
-            a_offset
-                .iter()
-                .map(|n| n.to_string())
-                .collect::<Vec<_>>()
-                .join(","),
-            b_offset
-                .iter()
-                .map(|n| n.to_string())
-                .collect::<Vec<_>>()
-                .join(",")
-        );
+        let hunks = Hunk::filter(&mut edits.clone());
 
-        for edit in hunk.edits {
-            match edit.edit_type {
-                EditType::Add => {
-                    println!(
-                        "{}",
-                        format!("+{}", edit.b_line.unwrap().line).green().bold()
-                    );
-                }
-                EditType::Remove => {
-                    println!("{}", format!("-{}", edit.a_line.unwrap().line).red().bold());
-                }
-                EditType::Equal => {
-                    println!("{}", format!(" {}", edit.a_line.unwrap().line));
+        for hunk in hunks {
+            let (a_offset, b_offset) = hunk.header();
+
+            let hunks_offsets = format!(
+                "@@ -{} +{} @@",
+                a_offset
+                    .iter()
+                    .map(|n| n.to_string())
+                    .collect::<Vec<_>>()
+                    .join(","),
+                b_offset
+                    .iter()
+                    .map(|n| n.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            );
+
+            println!("{}", hunks_offsets.cyan());
+
+            for edit in hunk.edits {
+                match edit.edit_type {
+                    EditType::Add => {
+                        println!("{}", format!("+{}", edit.b_line.unwrap().line).green());
+                    }
+                    EditType::Remove => {
+                        println!("{}", format!("-{}", edit.a_line.unwrap().line).red());
+                    }
+                    EditType::Equal => {
+                        println!("{}", format!(" {}", edit.a_line.unwrap().line));
+                    }
                 }
             }
         }

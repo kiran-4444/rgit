@@ -3,6 +3,7 @@ use clap::Subcommand;
 
 mod add;
 mod commit;
+mod diff;
 mod init;
 mod status;
 
@@ -17,8 +18,11 @@ pub enum GitCMD {
     /// Show the working tree status
     Status(status::StatusCMD),
 
-    //// Add file contents to the index
+    /// Add file contents to the index
     Add(add::AddCMD),
+
+    /// Show diff
+    Diff(diff::DiffCMD),
 }
 
 impl GitCMD {
@@ -28,6 +32,7 @@ impl GitCMD {
             GitCMD::Commit(commit) => commit.run()?,
             GitCMD::Status(status) => status.run()?,
             GitCMD::Add(add) => add.run()?,
+            GitCMD::Diff(diff) => diff.run()?,
         }
         Ok(())
     }

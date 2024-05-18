@@ -35,113 +35,128 @@ impl StatusCMD {
         };
         Index::flatten_entries(&index.entries, &mut flat_index);
 
-        let untracked_files = self.untracked_files(&flat_workspace, &flat_index);
+        let untracked_files = untracked_files(&flat_workspace, &flat_index);
         write_to_stdout("Untracked files:")?;
         for (file, _) in untracked_files {
             write_to_stdout_color(&file.red())?;
         }
 
-        let staged_files = self.tracked_files(&flat_index, &flat_commit_tree);
+        let staged_files = tracked_files(&flat_index, &flat_commit_tree);
 
         write_to_stdout("Changes to be committed:")?;
         for (file, status) in staged_files.clone() {
-            let message = format!("{}: {}", status.green(), file.green());
-            write_to_stdout(&message)?;
+            let message = format!("{}: {}", status, file);
+            write_to_stdout_color(&message.green())?;
         }
 
-        let modified_files = self.modified_files(&flat_workspace, &flat_index, &flat_commit_tree);
+        let modified_files = modified_files(&flat_workspace, &flat_index, &flat_commit_tree);
 
         write_to_stdout("Changed not staged for commit:")?;
         for (file, status) in modified_files.clone() {
-            let message = format!("{}: {}", status.red(), file.red());
-            write_to_stdout(&message)?;
+            let message = format!("{}: {}", status, file);
+            write_to_stdout_color(&message.red())?;
         }
 
         Ok(())
     }
+}
 
-    /// Returns a map of tracked files and their status
-    /// If a file is in the index but not in the commit tree, it's a new file
-    /// If a file is in the index and the commit tree but the content is different, it's a modified file
-    /// If a file is in the commit tree but not in the index, it's a deleted file
-    fn tracked_files(&self, index: &FlatIndex, commit_tree: &FlatTree) -> BTreeMap<String, String> {
-        let mut tracked_files = BTreeMap::new();
-        for (path, _) in index.entries.iter() {
-            if !commit_tree.entries.contains_key(path) {
-                tracked_files.insert(path.clone(), "new file".to_string());
-                continue;
-            }
-
-            let commit_entry = commit_tree.entries.get(path).unwrap();
-            let commit_entry_oid = commit_entry.oid.as_ref().unwrap();
-            let commit_entry_content = decompress_content(&commit_entry_oid).unwrap();
-
-            let index_entry = index.entries.get(path).unwrap();
-            let index_entry_oid = index_entry.oid.as_ref().unwrap();
-            let index_entry_content = decompress_content(&index_entry_oid).unwrap();
-
-            if index_entry_content != commit_entry_content {
-                tracked_files.insert(path.clone(), "modified".to_string());
-            }
+/// Returns a map of tracked files and their status
+/// If a file is in the index but not in the commit tree, it's a new file
+/// If a file is in the index and the commit tree but the content is different, it's a modified file
+/// If a file is in the commit tree but not in the index, it's a deleted file
+pub fn tracked_files(index: &FlatIndex, commit_tree: &FlatTree) -> BTreeMap<String, String> {
+    let mut tracked_files = BTreeMap::new();
+    for (path, _) in index.entries.iter() {
+        if !commit_tree.entries.contains_key(path) {
+            tracked_files.insert(path.clone(), "new file".to_string());
+            continue;
         }
 
-        for (path, _) in commit_tree.entries.iter() {
-            if !index.entries.contains_key(path) {
-                tracked_files.insert(path.clone(), "deleted".to_string());
-            }
+        let commit_entry = commit_tree.entries.get(path).unwrap();
+        let commit_entry_oid = commit_entry.oid.as_ref().unwrap();
+        let commit_entry_content = decompress_content(&commit_entry_oid).unwrap();
+
+        let index_entry = index.entries.get(path).unwrap();
+        let index_entry_oid = index_entry.oid.as_ref().unwrap();
+        let index_entry_content = decompress_content(&index_entry_oid).unwrap();
+
+        if index_entry_content != commit_entry_content {
+            tracked_files.insert(path.clone(), "modified".to_string());
         }
-        tracked_files
     }
 
-    /// Returns a map of untracked files
-    /// If a file is in the workspace but not in the index, it's untracked and new
-    /// If a file is in the index but not in the workspace, it's untracked and deleted
-    fn untracked_files(
-        &self,
-        workspace: &FlatIndex,
-        index: &FlatIndex,
-    ) -> BTreeMap<String, String> {
-        let mut untracked_files = BTreeMap::new();
-        for (path, _) in workspace.entries.iter() {
-            if !index.entries.contains_key(path) {
-                untracked_files.insert(path.clone(), "untracked".to_string());
-            }
+    for (path, _) in commit_tree.entries.iter() {
+        if !index.entries.contains_key(path) {
+            tracked_files.insert(path.clone(), "deleted".to_string());
         }
+    }
+    tracked_files
+}
 
-        untracked_files
+/// Returns a map of untracked files
+/// If a file is in the workspace but not in the index, it's untracked and new
+/// If a file is in the index but not in the workspace, it's untracked and deleted
+pub fn untracked_files(workspace: &FlatIndex, index: &FlatIndex) -> BTreeMap<String, String> {
+    let mut untracked_files = BTreeMap::new();
+    for (path, _) in workspace.entries.iter() {
+        if !index.entries.contains_key(path) {
+            untracked_files.insert(path.clone(), "untracked".to_string());
+        }
     }
 
-    fn modified_files(
-        &self,
-        workspace: &FlatIndex,
-        index: &FlatIndex,
-        commit_tree: &FlatTree,
-    ) -> BTreeMap<String, String> {
-        let mut modified_files = BTreeMap::new();
+    untracked_files
+}
 
-        for (path, _) in commit_tree.entries.iter() {
-            if !workspace.entries.contains_key(path) {
-                if index.entries.contains_key(path) {
-                    modified_files.insert(path.clone(), "deleted".to_string());
-                }
-                continue;
+/// Returns a map of modified files
+/// If a file is in the workspace but not in the index, it's untracked and new
+/// If a file is in the index but not in the workspace, it's untracked and deleted
+/// If a file is in the index and the workspace but the content is different, it's a modified file
+/// If a file is in the index and the workspace but the mode is different, it's a modified file
+pub fn modified_files(
+    workspace: &FlatIndex,
+    index: &FlatIndex,
+    commit_tree: &FlatTree,
+) -> BTreeMap<String, String> {
+    let mut modified_files = BTreeMap::new();
+
+    for (path, _) in commit_tree.entries.iter() {
+        if !workspace.entries.contains_key(path) {
+            if index.entries.contains_key(path) {
+                modified_files.insert(path.clone(), "deleted".to_string());
             }
+            continue;
+        }
 
+        let workspace_entry = workspace.entries.get(path).unwrap();
+        let workspace_entry_content = fs::read_to_string(&workspace_entry.path).unwrap();
+
+        if !index.entries.contains_key(path) {
+            // If the file is in the workspace but not in the index, it's untracked
+            continue;
+        }
+
+        let index_entry = index.entries.get(path).unwrap();
+        let index_entry_oid = index_entry.oid.as_ref().unwrap();
+        let index_entry_content = decompress_content(&index_entry_oid).unwrap();
+        if index_entry_content != workspace_entry_content
+            || index_entry.stat.mode != workspace_entry.stat.mode
+        {
+            modified_files.insert(path.clone(), "modified".to_string());
+        }
+    }
+
+    for (path, _) in index.entries.iter() {
+        let index_entry = index.entries.get(path).unwrap();
+
+        // if the mode is different, it's a modified file
+        if workspace.entries.contains_key(path) {
             let workspace_entry = workspace.entries.get(path).unwrap();
-            let workspace_entry_content = fs::read_to_string(&workspace_entry.path).unwrap();
-
-            if !index.entries.contains_key(path) {
-                continue;
-            }
-
-            let index_entry = index.entries.get(path).unwrap();
-            let index_entry_oid = index_entry.oid.as_ref().unwrap();
-            let index_entry_content = decompress_content(&index_entry_oid).unwrap();
-            if index_entry_content != workspace_entry_content {
+            if index_entry.stat.mode != workspace_entry.stat.mode {
                 modified_files.insert(path.clone(), "modified".to_string());
             }
         }
-
-        modified_files
     }
+
+    modified_files
 }
