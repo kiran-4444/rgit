@@ -3,14 +3,14 @@ use anyhow::Result;
 use clap::Parser;
 use colored::Colorize;
 use std::fs;
-use std::{path::PathBuf};
+use std::path::PathBuf;
 
 use crate::{
     command::status::{modified_files, tracked_files},
-    database::{Database},
+    database::{Content, Database},
     diff::Myres,
     index::{FlatIndex, Index},
-    utils::{decompress_content, get_root_path},
+    utils::get_root_path,
     workspace::{File, WorkspaceTree},
 };
 
@@ -110,7 +110,9 @@ impl DiffCMD {
         println!("{}", output.bold());
 
         let index_entry_oid = index_file.oid.as_ref().unwrap();
-        let index_entry_content = decompress_content(&index_entry_oid).unwrap();
+        // let index_entry_content = decompress_content(&index_entry_oid).unwrap();
+        let index_entry_content = String::from_utf8(Content::parse(index_entry_oid).unwrap().body)
+            .expect("failed to parse content");
 
         let diff = Myres::new("".to_string(), index_entry_content);
         diff.diff();
@@ -151,7 +153,12 @@ impl DiffCMD {
         println!("{}", output.bold());
 
         let index_entry_oid = index_file.oid.as_ref().unwrap();
-        let index_entry_content = decompress_content(&index_entry_oid).unwrap();
+        let index_entry_content = String::from_utf8(
+            Content::parse(index_entry_oid)
+                .expect("failed to get content")
+                .body,
+        )
+        .expect("failed to parse content to utf8");
 
         let diff = Myres::new(index_entry_content, "".to_string());
         diff.diff();
@@ -214,7 +221,12 @@ impl DiffCMD {
         let workspace_entry_content = fs::read_to_string(&workspace_file.path).unwrap();
 
         let index_entry_oid = index_file.oid.as_ref().unwrap();
-        let index_entry_content = decompress_content(&index_entry_oid).unwrap();
+        let index_entry_content = String::from_utf8(
+            Content::parse(index_entry_oid)
+                .expect("failed to get content")
+                .body,
+        )
+        .expect("failed to parse content to utf8");
 
         let diff = Myres::new(index_entry_content, workspace_entry_content);
         diff.diff();

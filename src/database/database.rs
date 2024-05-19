@@ -69,18 +69,17 @@ impl Header {
         let mut header = Vec::new();
         cursor.read_until(b'\0', &mut header).unwrap();
 
-        let mut header_cursor = Cursor::new(header);
-        let mut object_type = Vec::new();
-        header_cursor.read_until(b' ', &mut object_type).unwrap();
+        let header = String::from_utf8(header).unwrap();
 
-        let object_type = String::from_utf8(object_type).unwrap();
-        let object_type = object_type.trim_end_matches(' ');
-        let object_type = ObjectType::from_str(&object_type);
-
-        let mut object_size = Vec::new();
-        header_cursor.read_until(b'\0', &mut object_size).unwrap();
-        let object_size = String::from_utf8(object_size).unwrap();
-        let object_size = object_size.trim_end_matches('\0').parse::<usize>().unwrap();
+        let mut parts = header.split(' ');
+        let object_type = parts.next().unwrap();
+        let object_type = ObjectType::from_str(object_type);
+        let object_size = parts
+            .next()
+            .unwrap()
+            .trim_end_matches('\0')
+            .parse::<usize>()
+            .unwrap();
 
         Header {
             object_type,
@@ -139,37 +138,7 @@ impl<'a> Database {
         }
     }
 
-    fn object_path(&self, name: &str) -> PathBuf {
-        PathBuf::from(&self.object_store)
-            .join(&name[0..2])
-            .join(&name[2..])
-    }
-
     pub fn read_object(&self, oid: &str) -> Result<ParsedContent> {
-        // let data = std::fs::read(self.object_path(oid))?;
-        // let mut decoder = flate2::read::ZlibDecoder::new(&data[..]);
-        // let mut buffer = Vec::new();
-        // decoder.read_to_end(&mut buffer)?;
-
-        // let mut cursor = std::io::Cursor::new(buffer);
-        // let mut header = Vec::new();
-        // cursor.read_until(b'\0', &mut header)?;
-        // let mut content = Vec::new();
-        // cursor.read_to_end(&mut content)?;
-
-        // let mut header_cursor = std::io::Cursor::new(header);
-        // let mut object_type = Vec::new();
-        // header_cursor.read_until(b' ', &mut object_type)?;
-        // let mut object_size = Vec::new();
-        // header_cursor.read_until(b'\0', &mut object_size)?;
-
-        // let object_type = String::from_utf8(object_type)?;
-        // let object_type = object_type.trim_end_matches(' ');
-        // let object_type = ObjectType::from_str(&object_type);
-
-        // let object_size = String::from_utf8(object_size)?;
-        // let _object_size = object_size.trim_end_matches('\0').parse::<usize>()?;
-
         let header = Header::parse(oid);
 
         let parsed_content = match header.object_type {
