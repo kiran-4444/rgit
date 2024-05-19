@@ -1,14 +1,13 @@
-use colored::{Colorize};
 use std::ops::{Index, IndexMut};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct Line<'a> {
-    line: &'a str,
-    line_number: i32,
+#[derive(Debug, Clone, PartialEq)]
+pub struct Line {
+    pub line: String,
+    pub line_number: i32,
 }
 
-impl Line<'_> {
-    fn new(line: &str, line_number: i32) -> Line {
+impl Line {
+    fn new(line: String, line_number: i32) -> Line {
         Line { line, line_number }
     }
 }
@@ -23,75 +22,45 @@ impl Myres {
         Self { a, b }
     }
 
-    pub fn diff(&self) {
+    pub fn diff(&self) -> Vec<Hunk> {
         let a_lines: Vec<&str> = self.a.lines().collect();
         let b_lines: Vec<&str> = self.b.lines().collect();
 
         let a_lines = a_lines
             .iter()
             .enumerate()
-            .map(|(i, line)| Line::new(line, i as i32 + 1))
+            .map(|(i, line)| Line::new((*line).to_owned(), i as i32 + 1))
             .collect::<Vec<_>>();
 
         let b_lines = b_lines
             .iter()
             .enumerate()
-            .map(|(i, line)| Line::new(line, i as i32 + 1))
+            .map(|(i, line)| Line::new((*line).to_owned(), i as i32 + 1))
             .collect::<Vec<_>>();
 
         let trace = diff(&a_lines, &b_lines);
         let ans = backtrack(trace.0, &a_lines, &b_lines);
+
         let edits = render(&a_lines, &b_lines, ans);
 
-        let hunks = Hunk::filter(&mut edits.clone());
+        let edits = edits.clone();
 
-        for hunk in hunks {
-            let (a_offset, b_offset) = hunk.header();
-
-            let hunks_offsets = format!(
-                "@@ -{} +{} @@",
-                a_offset
-                    .iter()
-                    .map(|n| n.to_string())
-                    .collect::<Vec<_>>()
-                    .join(","),
-                b_offset
-                    .iter()
-                    .map(|n| n.to_string())
-                    .collect::<Vec<_>>()
-                    .join(",")
-            );
-
-            println!("{}", hunks_offsets.cyan());
-
-            for edit in hunk.edits {
-                match edit.edit_type {
-                    EditType::Add => {
-                        println!("{}", format!("+{}", edit.b_line.unwrap().line).green());
-                    }
-                    EditType::Remove => {
-                        println!("{}", format!("-{}", edit.a_line.unwrap().line).red());
-                    }
-                    EditType::Equal => {
-                        println!("{}", format!(" {}", edit.a_line.unwrap().line));
-                    }
-                }
-            }
-        }
+        let hunks = Hunk::filter(&edits);
+        hunks
     }
 }
 
 #[derive(Debug, Clone)]
-struct Hunk<'a> {
+pub struct Hunk {
     a_start: i32,
     b_start: i32,
-    edits: Vec<Edit<'a>>,
+    pub edits: Vec<Edit>,
 }
 
 const HUNK_CONTEXT: usize = 3;
 
-impl<'a> Hunk<'a> {
-    fn new(a_start: i32, b_start: i32, edits: Vec<Edit<'a>>) -> Hunk<'a> {
+impl Hunk {
+    fn new(a_start: i32, b_start: i32, edits: Vec<Edit>) -> Hunk {
         Hunk {
             a_start,
             b_start,
@@ -99,7 +68,7 @@ impl<'a> Hunk<'a> {
         }
     }
 
-    fn header(&self) -> (Vec<usize>, Vec<usize>) {
+    pub fn header(&self) -> (Vec<usize>, Vec<usize>) {
         let a_offset = self.offsets_for(|edit| edit.a_line.clone(), self.a_start as usize);
         let b_offset = self.offsets_for(|edit| edit.b_line.clone(), self.b_start as usize);
 
@@ -108,7 +77,7 @@ impl<'a> Hunk<'a> {
 
     fn offsets_for<F>(&self, line_type: F, default: usize) -> Vec<usize>
     where
-        F: Fn(&Edit<'a>) -> Option<Line<'a>>,
+        F: Fn(&Edit) -> Option<Line>,
     {
         let lines = self
             .edits
@@ -122,7 +91,7 @@ impl<'a> Hunk<'a> {
         vec![start, lines.len()]
     }
 
-    fn build(hunk: &mut Hunk<'a>, edits: &mut Vec<Edit<'a>>, offset: i32) -> i32 {
+    fn build(hunk: &mut Hunk, edits: &Vec<Edit>, offset: i32) -> i32 {
         let mut counter: i32 = -1;
         let mut offset = offset;
 
@@ -155,7 +124,7 @@ impl<'a> Hunk<'a> {
         offset
     }
 
-    fn filter(edits: &mut Vec<Edit<'a>>) -> Vec<Hunk<'a>> {
+    fn filter(edits: &Vec<Edit>) -> Vec<Hunk> {
         let mut hunks = vec![];
         let mut offset: i32 = 0;
 
@@ -177,6 +146,7 @@ impl<'a> Hunk<'a> {
             } else {
                 edits[offset as usize]
                     .a_line
+                    .clone()
                     .expect("found none a_line")
                     .line_number
             };
@@ -185,6 +155,7 @@ impl<'a> Hunk<'a> {
             } else {
                 edits[offset as usize]
                     .b_line
+                    .clone()
                     .expect("found none b_line")
                     .line_number
             };
@@ -197,24 +168,24 @@ impl<'a> Hunk<'a> {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-enum EditType {
+pub enum EditType {
     Add,
     Remove,
     Equal,
 }
 
 #[derive(Debug, Clone)]
-struct Edit<'a> {
-    edit_type: EditType,
-    a_line: Option<Line<'a>>,
-    b_line: Option<Line<'a>>,
+pub struct Edit {
+    pub edit_type: EditType,
+    pub a_line: Option<Line>,
+    pub b_line: Option<Line>,
 }
 
 fn render<'a>(
-    a_lines: &'a Vec<Line<'a>>,
-    b_lines: &'a Vec<Line<'a>>,
+    a_lines: &'a Vec<Line>,
+    b_lines: &'a Vec<Line>,
     ans: Vec<(i32, i32, i32, i32)>,
-) -> Vec<Edit<'a>> {
+) -> Vec<Edit> {
     let mut diff = vec![];
 
     for (prev_x, prev_y, x, y) in ans {
@@ -223,11 +194,11 @@ fn render<'a>(
         let mut a_line_number = -1;
         let mut b_line_number = -1;
         if prev_x < a_lines.len() as i32 {
-            a_line = a_lines[prev_x as usize].line;
+            a_line = a_lines[prev_x as usize].line.as_str();
             a_line_number = a_lines[prev_x as usize].line_number;
         }
         if prev_y < b_lines.len() as i32 {
-            b_line = b_lines[prev_y as usize].line;
+            b_line = b_lines[prev_y as usize].line.as_str();
             b_line_number = b_lines[prev_y as usize].line_number;
         }
 
@@ -235,19 +206,19 @@ fn render<'a>(
             diff.push(Edit {
                 edit_type: EditType::Add,
                 a_line: None,
-                b_line: Some(Line::new(b_line, b_line_number)),
+                b_line: Some(Line::new(b_line.to_owned(), b_line_number)),
             });
         } else if y == prev_y {
             diff.push(Edit {
                 edit_type: EditType::Remove,
-                a_line: Some(Line::new(a_line, a_line_number)),
+                a_line: Some(Line::new(a_line.to_owned(), a_line_number)),
                 b_line: None,
             });
         } else {
             diff.push(Edit {
                 edit_type: EditType::Equal,
-                a_line: Some(Line::new(a_line, a_line_number)),
-                b_line: Some(Line::new(b_line, b_line_number)),
+                a_line: Some(Line::new(a_line.to_owned(), a_line_number)),
+                b_line: Some(Line::new(b_line.to_owned(), b_line_number)),
             });
         }
     }

@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use crate::{
     command::status::{modified_files, tracked_files},
     database::{Content, Database},
-    diff::Myres,
+    diff::{EditType, Myres},
     index::{FlatIndex, Index},
     utils::{get_root_path, is_binary_file},
     workspace::{File, WorkspaceTree},
@@ -251,7 +251,41 @@ impl DiffCMD {
         .expect("failed to parse content to utf8");
 
         let diff = Myres::new(index_entry_content, workspace_entry_content);
-        diff.diff();
+        let hunks = diff.diff();
+
+        for hunk in hunks {
+            let (a_offset, b_offset) = hunk.header();
+
+            let hunks_offsets = format!(
+                "@@ -{} +{} @@",
+                a_offset
+                    .iter()
+                    .map(|n| n.to_string())
+                    .collect::<Vec<_>>()
+                    .join(","),
+                b_offset
+                    .iter()
+                    .map(|n| n.to_string())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            );
+
+            println!("{}", hunks_offsets.cyan());
+
+            for edit in hunk.edits {
+                match edit.edit_type {
+                    EditType::Add => {
+                        println!("{}", format!("+{}", edit.b_line.unwrap().line).green());
+                    }
+                    EditType::Remove => {
+                        println!("{}", format!("-{}", edit.a_line.unwrap().line).red());
+                    }
+                    EditType::Equal => {
+                        println!("{}", format!(" {}", edit.a_line.unwrap().line));
+                    }
+                }
+            }
+        }
     }
 
     fn short_oid(&self, oid: &str) -> String {
