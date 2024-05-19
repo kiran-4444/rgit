@@ -129,7 +129,8 @@ pub fn modified_files(
         }
 
         let workspace_entry = workspace.entries.get(path).unwrap();
-        let workspace_entry_content = fs::read_to_string(&workspace_entry.path).unwrap();
+        let workspace_entry_content =
+            unsafe { String::from_utf8_unchecked(fs::read(&workspace_entry.path).unwrap()) };
 
         if !index.entries.contains_key(path) {
             // If the file is in the workspace but not in the index, it's untracked
@@ -138,8 +139,8 @@ pub fn modified_files(
 
         let index_entry = index.entries.get(path).unwrap();
         let index_entry_oid = index_entry.oid.as_ref().unwrap();
-        let index_entry_content = String::from_utf8(Content::parse(index_entry_oid).unwrap().body)
-            .expect("Failed to parse content");
+        let index_entry_content =
+            unsafe { String::from_utf8_unchecked(Content::parse(index_entry_oid).unwrap().body) };
         if index_entry_content != workspace_entry_content
             || index_entry.stat.mode != workspace_entry.stat.mode
         {

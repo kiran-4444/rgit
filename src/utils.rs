@@ -49,3 +49,21 @@ pub fn get_root_path() -> Result<PathBuf> {
     }
     Ok(current_dir)
 }
+
+pub fn is_binary_file(content: &[u8]) -> Result<bool> {
+    Ok(!is_printable(content))
+}
+
+fn is_printable(content: &[u8]) -> bool {
+    if let Ok(text) = std::str::from_utf8(content) {
+        for ch in text.chars() {
+            if !ch.is_control() || ch.is_whitespace() {
+                continue;
+            }
+            return false;
+        }
+        true
+    } else {
+        false
+    }
+}
