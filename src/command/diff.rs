@@ -83,11 +83,7 @@ impl DiffCMD {
             .clone()
             .expect("OID not found for index entry");
         let b_path = PathBuf::from("b").join(index_file.path.clone());
-        let b_mode = if index_file.stat.mode & 0o111 != 0 {
-            "100755"
-        } else {
-            "100644"
-        };
+        let b_mode = index_file.stat.mode;
 
         let null_path = PathBuf::from("/dev/null");
 
@@ -95,7 +91,7 @@ impl DiffCMD {
 
         println!("{}", output.bold());
 
-        let output = format!("old file mode {}", b_mode.bold());
+        let output = format!("old file mode {}", b_mode.to_string().bold());
         println!("{}", output.bold());
 
         let output = format!(
@@ -134,11 +130,7 @@ impl DiffCMD {
             .clone()
             .expect("OID not found for index entry");
         let a_path = PathBuf::from("a").join(index_file.path.clone());
-        let a_mode = if index_file.stat.mode & 0o111 != 0 {
-            "100755"
-        } else {
-            "100644"
-        };
+        let a_mode = index_file.stat.mode;
 
         let b_oid = "0".repeat(40);
         let b_path = PathBuf::from("b").join(index_file.path.clone());
@@ -148,7 +140,7 @@ impl DiffCMD {
         let output = format!("diff --git {} {}", a_path.display(), b_path.display());
         println!("{}", output.bold());
 
-        let output = format!("deleted file mode {}", a_mode.bold());
+        let output = format!("deleted file mode {}", a_mode.to_string().bold());
         println!("{}", output.bold());
 
         let output = format!(
@@ -184,29 +176,21 @@ impl DiffCMD {
             .clone()
             .expect("OID not found for index entry");
         let a_path = PathBuf::from("a").join(index_file.path.clone());
-        let a_mode = if index_file.stat.mode & 0o111 != 0 {
-            "100755"
-        } else {
-            "100644"
-        };
+        let a_mode = index_file.stat.mode;
 
         let b_oid = workspace_file
             .oid
             .clone()
             .expect("OID not found for workspace entry");
         let b_path = PathBuf::from("b").join(workspace_file.path.clone());
-        let b_mode = if workspace_file.stat.mode & 0o111 != 0 {
-            "100755"
-        } else {
-            "100644"
-        };
+        let b_mode = workspace_file.stat.mode;
 
         let output = format!("diff --git {} {}", a_path.display(), b_path.display());
 
         println!("{}", output.bold());
         if a_mode != b_mode {
-            println!("old mode {}", a_mode.bold());
-            println!("new mode {}", b_mode.bold());
+            println!("old mode {}", a_mode.to_string().bold());
+            println!("new mode {}", b_mode.to_string().bold());
         }
         if a_oid == b_oid {
             return;

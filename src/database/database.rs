@@ -12,11 +12,24 @@ use crate::{database::Storable, utils::compress_content, utils::hash_content};
 
 use super::tree::FlatTree;
 
+#[derive(Debug)]
 pub enum FileMode {
     Regular,
     Executable,
     Directory,
     Unknown,
+}
+
+impl From<FileMode> for u32 {
+    fn from(mode: FileMode) -> u32 {
+        dbg!(&mode);
+        match mode {
+            FileMode::Regular => 0o100644,
+            FileMode::Executable => 0o100755,
+            FileMode::Directory => 0o040000,
+            FileMode::Unknown => 0,
+        }
+    }
 }
 
 impl FileMode {

@@ -80,6 +80,7 @@ impl Tree {
                         Some(parent) => format!("{}/{}", parent, name),
                         None => name.to_owned(),
                     };
+
                     let file = File {
                         name: name.to_owned(),
                         path: PathBuf::from(path.clone()),

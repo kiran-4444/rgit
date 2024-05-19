@@ -2,6 +2,8 @@ use std::cmp::min;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::PathBuf;
 
+use crate::database::FileMode;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stat {
     pub ino: u32,
@@ -56,10 +58,11 @@ impl Stat {
             ino: stat.ino() as u32,
             size: stat.size() as u32,
             mode: if stat.permissions().mode() & 0o111 != 0 {
-                EXECUTABLE_MODE
+                FileMode::Executable
             } else {
-                REGULAR_MODE
-            } as u32,
+                FileMode::Regular
+            }
+            .into(),
             uid: stat.uid() as u32,
             gid: stat.gid() as u32,
             ctime: stat.ctime() as u32,
