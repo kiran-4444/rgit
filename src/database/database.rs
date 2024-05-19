@@ -10,6 +10,24 @@ use crate::{database::Storable, utils::compress_content, utils::hash_content};
 
 use super::tree::FlatTree;
 
+pub enum FileMode {
+    Regular,
+    Executable,
+    Directory,
+    Unknown,
+}
+
+impl FileMode {
+    pub fn from_str(mode: &str) -> Self {
+        match mode {
+            "100644" => FileMode::Regular,
+            "100755" => FileMode::Executable,
+            "040000" => FileMode::Directory,
+            _ => FileMode::Unknown,
+        }
+    }
+}
+
 pub struct Database {
     pub object_store: PathBuf,
     pub objects: Vec<String>,

@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    database::{storable::Storable, Database},
+    database::{storable::Storable, Database, FileMode},
     index::Index,
     utils::get_object_path,
     workspace::{Dir, File, FileOrDir},
@@ -48,40 +48,45 @@ impl Tree {
             cursor.read_until(b'\0', &mut mode_and_name).unwrap();
             let mode_and_name = String::from_utf8(mode_and_name.clone()).unwrap();
             let mode = mode_and_name.split(' ').next().unwrap();
+            let mode = FileMode::from_str(mode);
             let name = mode_and_name.split(' ').last().unwrap().trim_matches('\0');
+
             let mut oid = vec![0; 20];
             cursor.read_exact(&mut oid).unwrap();
             let oid = hex::encode(oid);
-            if mode == "40000" {
-                let object_path = get_object_path(&oid);
-                let data = std::fs::read(object_path).unwrap();
-                let mut decoder = flate2::read::ZlibDecoder::new(&data[..]);
-                let mut buffer = Vec::new();
-                decoder.read_to_end(&mut buffer).unwrap();
+            match mode {
+                FileMode::Directory => {
+                    let object_path = get_object_path(&oid);
+                    let data = std::fs::read(object_path).unwrap();
+                    let mut decoder = flate2::read::ZlibDecoder::new(&data[..]);
+                    let mut buffer = Vec::new();
+                    decoder.read_to_end(&mut buffer).unwrap();
 
-                let mut cursor = std::io::Cursor::new(buffer);
-                let mut header = Vec::new();
-                cursor.read_until(b'\0', &mut header).unwrap();
-                let mut content = Vec::new();
-                cursor.read_to_end(&mut content).unwrap();
-                let parent_path = match &current_parent {
-                    Some(parent) => format!("{}/{}", parent, name),
-                    None => name.to_owned(),
-                };
-                let child_tree = Tree::parse(content, Some(parent_path.to_owned()));
-                entries.extend(child_tree);
-            } else {
-                let path = match &current_parent {
-                    Some(parent) => format!("{}/{}", parent, name),
-                    None => name.to_owned(),
-                };
-                let file = File {
-                    name: name.to_owned(),
-                    path: PathBuf::from(path.clone()),
-                    stat: Default::default(),
-                    oid: Some(oid),
-                };
-                entries.insert(path, file);
+                    let mut cursor = std::io::Cursor::new(buffer);
+                    let mut header = Vec::new();
+                    cursor.read_until(b'\0', &mut header).unwrap();
+                    let mut content = Vec::new();
+                    cursor.read_to_end(&mut content).unwrap();
+                    let parent_path = match &current_parent {
+                        Some(parent) => format!("{}/{}", parent, name),
+                        None => name.to_owned(),
+                    };
+                    let child_tree = Tree::parse(content, Some(parent_path.to_owned()));
+                    entries.extend(child_tree);
+                }
+                _ => {
+                    let path = match &current_parent {
+                        Some(parent) => format!("{}/{}", parent, name),
+                        None => name.to_owned(),
+                    };
+                    let file = File {
+                        name: name.to_owned(),
+                        path: PathBuf::from(path.clone()),
+                        stat: Default::default(),
+                        oid: Some(oid),
+                    };
+                    entries.insert(path, file);
+                }
             }
         }
         entries
