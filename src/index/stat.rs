@@ -21,8 +21,6 @@ pub struct Stat {
     pub path: PathBuf,
 }
 
-static REGULAR_MODE: u32 = 0o100644;
-static EXECUTABLE_MODE: u32 = 0o100755;
 static MAX_PATH_SIZE: usize = 0xfff;
 
 impl Default for Stat {
