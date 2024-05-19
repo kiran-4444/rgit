@@ -9,7 +9,8 @@ use std::{
 
 use crate::{
     database::{storable::Storable, Content, Database, FileMode},
-    index::Index,
+    index::{FlatIndex, Index},
+    utils::get_root_path,
     workspace::{Dir, File, FileOrDir},
 };
 
@@ -81,10 +82,22 @@ impl Tree {
                         None => name.to_owned(),
                     };
 
+                    let root_path = get_root_path().unwrap();
+                    let mut index = Index::new(root_path.join(".rgit").join("index"));
+                    index.load().unwrap();
+                    let mut flat_index = FlatIndex {
+                        entries: Default::default(),
+                    };
+                    Index::flatten_entries(&index.entries, &mut flat_index);
+
                     let file = File {
                         name: name.to_owned(),
                         path: PathBuf::from(path.clone()),
-                        stat: Default::default(),
+                        stat: if flat_index.entries.contains_key(&path) {
+                            flat_index.entries.get(&path).unwrap().stat.clone()
+                        } else {
+                            Default::default()
+                        },
                         oid: Some(oid),
                     };
                     entries.insert(path, file);

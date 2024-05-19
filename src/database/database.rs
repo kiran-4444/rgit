@@ -22,7 +22,6 @@ pub enum FileMode {
 
 impl From<FileMode> for u32 {
     fn from(mode: FileMode) -> u32 {
-        dbg!(&mode);
         match mode {
             FileMode::Regular => 0o100644,
             FileMode::Executable => 0o100755,
