@@ -2,15 +2,15 @@ use anyhow::Result;
 use itertools::Itertools;
 use std::{
     collections::BTreeMap,
-    io::{BufRead, Read},
+    io::{BufRead, Cursor, Read},
     iter::zip,
     path::PathBuf,
 };
 
 use crate::{
-    database::{storable::Storable, Database},
-    index::Index,
-    utils::get_object_path,
+    database::{storable::Storable, Content, Database, FileMode},
+    index::{FlatIndex, Index},
+    utils::get_root_path,
     workspace::{Dir, File, FileOrDir},
 };
 
@@ -39,49 +39,69 @@ impl Tree {
         }
     }
 
-    pub fn parse(content: Vec<u8>, current_parent: Option<String>) -> BTreeMap<String, File> {
-        let mut cursor = std::io::Cursor::new(content);
+    pub fn parse(oid: String) -> BTreeMap<String, File> {
+        let content = Content::parse(&oid).expect("Failed to parse content").body;
+        Tree::_parse(content, None)
+    }
+
+    fn _parse_name_and_mode(cursor: &mut Cursor<Vec<u8>>) -> (String, FileMode) {
+        let mut mode_and_name: Vec<u8> = Vec::new();
+        cursor.read_until(b'\0', &mut mode_and_name).unwrap();
+        let mode_and_name = String::from_utf8(mode_and_name.clone()).unwrap();
+        let mode = mode_and_name.split(' ').next().unwrap();
+        let mode = FileMode::from_str(mode);
+        let name = mode_and_name.split(' ').last().unwrap().trim_matches('\0');
+        (name.to_owned(), mode)
+    }
+
+    fn _parse(content: Vec<u8>, current_parent: Option<String>) -> BTreeMap<String, File> {
+        let mut cursor = Cursor::new(content);
         let mut entries = BTreeMap::new();
 
         while !cursor.is_empty() {
-            let mut mode_and_name: Vec<u8> = Vec::new();
-            cursor.read_until(b'\0', &mut mode_and_name).unwrap();
-            let mode_and_name = String::from_utf8(mode_and_name.clone()).unwrap();
-            let mode = mode_and_name.split(' ').next().unwrap();
-            let name = mode_and_name.split(' ').last().unwrap().trim_matches('\0');
+            let (name, mode) = Tree::_parse_name_and_mode(&mut cursor);
+
             let mut oid = vec![0; 20];
             cursor.read_exact(&mut oid).unwrap();
             let oid = hex::encode(oid);
-            if mode == "40000" {
-                let object_path = get_object_path(&oid);
-                let data = std::fs::read(object_path).unwrap();
-                let mut decoder = flate2::read::ZlibDecoder::new(&data[..]);
-                let mut buffer = Vec::new();
-                decoder.read_to_end(&mut buffer).unwrap();
 
-                let mut cursor = std::io::Cursor::new(buffer);
-                let mut header = Vec::new();
-                cursor.read_until(b'\0', &mut header).unwrap();
-                let mut content = Vec::new();
-                cursor.read_to_end(&mut content).unwrap();
-                let parent_path = match &current_parent {
-                    Some(parent) => format!("{}/{}", parent, name),
-                    None => name.to_owned(),
-                };
-                let child_tree = Tree::parse(content, Some(parent_path.to_owned()));
-                entries.extend(child_tree);
-            } else {
-                let path = match &current_parent {
-                    Some(parent) => format!("{}/{}", parent, name),
-                    None => name.to_owned(),
-                };
-                let file = File {
-                    name: name.to_owned(),
-                    path: PathBuf::from(path.clone()),
-                    stat: Default::default(),
-                    oid: Some(oid),
-                };
-                entries.insert(path, file);
+            match mode {
+                FileMode::Directory => {
+                    let content = Content::parse(&oid).expect("Failed to parse content").body;
+
+                    let parent_path = match &current_parent {
+                        Some(parent) => format!("{}/{}", parent, name),
+                        None => name.to_owned(),
+                    };
+                    let child_tree = Tree::_parse(content, Some(parent_path.to_owned()));
+                    entries.extend(child_tree);
+                }
+                _ => {
+                    let path = match &current_parent {
+                        Some(parent) => format!("{}/{}", parent, name),
+                        None => name.to_owned(),
+                    };
+
+                    let root_path = get_root_path().unwrap();
+                    let mut index = Index::new(root_path.join(".rgit").join("index"));
+                    index.load().unwrap();
+                    let mut flat_index = FlatIndex {
+                        entries: Default::default(),
+                    };
+                    Index::flatten_entries(&index.entries, &mut flat_index);
+
+                    let file = File {
+                        name: name.to_owned(),
+                        path: PathBuf::from(path.clone()),
+                        stat: if flat_index.entries.contains_key(&path) {
+                            flat_index.entries.get(&path).unwrap().stat.clone()
+                        } else {
+                            Default::default()
+                        },
+                        oid: Some(oid),
+                    };
+                    entries.insert(path, file);
+                }
             }
         }
         entries

@@ -1,6 +1,8 @@
 use anyhow::Result;
-use std::fs::{rename, File};
-use std::io::prelude::*;
+use flate2::read::ZlibDecoder;
+use std::fs::{read, rename, File};
+use std::io::{prelude::*, Cursor};
+
 use std::path::PathBuf;
 
 use crate::database::{Blob, Commit, Tree};
@@ -9,6 +11,124 @@ use crate::utils::get_root_path;
 use crate::{database::Storable, utils::compress_content, utils::hash_content};
 
 use super::tree::FlatTree;
+
+#[derive(Debug)]
+pub enum FileMode {
+    Regular,
+    Executable,
+    Directory,
+    Unknown,
+}
+
+impl From<FileMode> for u32 {
+    fn from(mode: FileMode) -> u32 {
+        match mode {
+            FileMode::Regular => 0o100644,
+            FileMode::Executable => 0o100755,
+            FileMode::Directory => 0o040000,
+            FileMode::Unknown => 0,
+        }
+    }
+}
+
+impl FileMode {
+    pub fn from_str(mode: &str) -> Self {
+        match mode {
+            "100644" => FileMode::Regular,
+            "100755" => FileMode::Executable,
+            "040000" => FileMode::Directory,
+            _ => FileMode::Unknown,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ObjectType {
+    Blob,
+    Tree,
+    Commit,
+    Unknown,
+}
+
+impl ObjectType {
+    pub fn from_str(object_type: &str) -> Self {
+        match object_type {
+            "blob" => ObjectType::Blob,
+            "tree" => ObjectType::Tree,
+            "commit" => ObjectType::Commit,
+            _ => ObjectType::Unknown,
+        }
+    }
+}
+
+pub struct Header {
+    pub object_type: ObjectType,
+    pub object_size: usize,
+}
+
+impl Header {
+    pub fn parse(oid: &str) -> Self {
+        let object_path = PathBuf::from(".rgit/objects")
+            .join(&oid[0..2])
+            .join(&oid[2..]);
+        let data = read(object_path).unwrap();
+
+        let mut decompressed = ZlibDecoder::new(&data[..]);
+        let mut buffer = Vec::new();
+        decompressed.read_to_end(&mut buffer).unwrap();
+
+        let mut cursor = Cursor::new(buffer);
+        let mut header = Vec::new();
+        cursor.read_until(b'\0', &mut header).unwrap();
+
+        let header = String::from_utf8(header).unwrap();
+
+        let mut parts = header.split(' ');
+        let object_type = parts.next().unwrap();
+        let object_type = ObjectType::from_str(object_type);
+        let object_size = parts
+            .next()
+            .unwrap()
+            .trim_end_matches('\0')
+            .parse::<usize>()
+            .unwrap();
+
+        Header {
+            object_type,
+            object_size,
+        }
+    }
+}
+
+pub struct Content {
+    pub header: Header,
+    pub body: Vec<u8>,
+}
+
+impl Content {
+    pub fn parse(oid: &str) -> Result<Self> {
+        let object_path = PathBuf::from(".rgit/objects")
+            .join(&oid[0..2])
+            .join(&oid[2..]);
+
+        let data = read(object_path)?;
+
+        let mut decoder = ZlibDecoder::new(&data[..]);
+        let mut buffer = Vec::new();
+        decoder.read_to_end(&mut buffer)?;
+
+        let mut cursor = Cursor::new(buffer);
+        let mut header = Vec::new();
+        cursor.read_until(b'\0', &mut header)?;
+
+        let mut body = Vec::new();
+        cursor.read_to_end(&mut body)?;
+
+        let header = Header::parse(&oid);
+
+        Ok(Content { header, body })
+    }
+}
 
 pub struct Database {
     pub object_store: PathBuf,
@@ -30,48 +150,21 @@ impl<'a> Database {
         }
     }
 
-    fn object_path(&self, name: &str) -> PathBuf {
-        PathBuf::from(&self.object_store)
-            .join(&name[0..2])
-            .join(&name[2..])
-    }
-
     pub fn read_object(&self, oid: &str) -> Result<ParsedContent> {
-        let data = std::fs::read(self.object_path(oid))?;
-        let mut decoder = flate2::read::ZlibDecoder::new(&data[..]);
-        let mut buffer = Vec::new();
-        decoder.read_to_end(&mut buffer)?;
+        let header = Header::parse(oid);
 
-        let mut cursor = std::io::Cursor::new(buffer);
-        let mut header = Vec::new();
-        cursor.read_until(b'\0', &mut header)?;
-        let mut content = Vec::new();
-        cursor.read_to_end(&mut content)?;
-
-        let mut header_cursor = std::io::Cursor::new(header);
-        let mut object_type = Vec::new();
-        header_cursor.read_until(b' ', &mut object_type)?;
-        let mut object_size = Vec::new();
-        header_cursor.read_until(b'\0', &mut object_size)?;
-
-        let object_type = String::from_utf8(object_type)?;
-        let object_type = object_type.trim_end_matches(' ');
-
-        let object_size = String::from_utf8(object_size)?;
-        let _object_size = object_size.trim_end_matches('\0').parse::<usize>()?;
-
-        let parsed_content = match object_type {
-            "blob" => ParsedContent::BlobContent(Blob::parse(oid.to_owned(), content)),
-            "commit" => ParsedContent::CommitContent(Commit::parse(oid.to_owned(), content)),
-            "tree" => {
-                let file_or_dir = Tree::parse(content, None);
+        let parsed_content = match header.object_type {
+            ObjectType::Blob => ParsedContent::BlobContent(Blob::parse(oid.to_owned())),
+            ObjectType::Commit => ParsedContent::CommitContent(Commit::parse(oid.to_owned())),
+            ObjectType::Tree => {
+                let file_or_dir = Tree::parse(oid.to_owned());
                 ParsedContent::TreeContent(FlatTree {
                     entries: file_or_dir,
                 })
             }
 
-            _ => {
-                return Err(anyhow::anyhow!("Unknown object type: {}", object_type));
+            ObjectType::Unknown => {
+                panic!("Unknown object type");
             }
         };
 

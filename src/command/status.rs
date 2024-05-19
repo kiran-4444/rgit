@@ -5,9 +5,9 @@ use clap::Parser;
 use colored::Colorize;
 
 use crate::{
-    database::{Database, FlatTree},
+    database::{Content, Database, FlatTree},
     index::{FlatIndex, Index},
-    utils::{decompress_content, get_root_path, write_to_stdout, write_to_stdout_color},
+    utils::{get_root_path, write_to_stdout, write_to_stdout_color},
     workspace::WorkspaceTree,
 };
 
@@ -65,6 +65,7 @@ impl StatusCMD {
 /// If a file is in the index but not in the commit tree, it's a new file
 /// If a file is in the index and the commit tree but the content is different, it's a modified file
 /// If a file is in the commit tree but not in the index, it's a deleted file
+/// If a file is in the index but not in the workspace, it's deleted
 pub fn tracked_files(index: &FlatIndex, commit_tree: &FlatTree) -> BTreeMap<String, String> {
     let mut tracked_files = BTreeMap::new();
     for (path, _) in index.entries.iter() {
@@ -75,11 +76,11 @@ pub fn tracked_files(index: &FlatIndex, commit_tree: &FlatTree) -> BTreeMap<Stri
 
         let commit_entry = commit_tree.entries.get(path).unwrap();
         let commit_entry_oid = commit_entry.oid.as_ref().unwrap();
-        let commit_entry_content = decompress_content(&commit_entry_oid).unwrap();
+        let commit_entry_content = Content::parse(commit_entry_oid).unwrap().body;
 
         let index_entry = index.entries.get(path).unwrap();
         let index_entry_oid = index_entry.oid.as_ref().unwrap();
-        let index_entry_content = decompress_content(&index_entry_oid).unwrap();
+        let index_entry_content = Content::parse(index_entry_oid).unwrap().body;
 
         if index_entry_content != commit_entry_content {
             tracked_files.insert(path.clone(), "modified".to_string());
@@ -91,6 +92,7 @@ pub fn tracked_files(index: &FlatIndex, commit_tree: &FlatTree) -> BTreeMap<Stri
             tracked_files.insert(path.clone(), "deleted".to_string());
         }
     }
+
     tracked_files
 }
 
@@ -129,7 +131,8 @@ pub fn modified_files(
         }
 
         let workspace_entry = workspace.entries.get(path).unwrap();
-        let workspace_entry_content = fs::read_to_string(&workspace_entry.path).unwrap();
+        let workspace_entry_content =
+            unsafe { String::from_utf8_unchecked(fs::read(&workspace_entry.path).unwrap()) };
 
         if !index.entries.contains_key(path) {
             // If the file is in the workspace but not in the index, it's untracked
@@ -138,7 +141,8 @@ pub fn modified_files(
 
         let index_entry = index.entries.get(path).unwrap();
         let index_entry_oid = index_entry.oid.as_ref().unwrap();
-        let index_entry_content = decompress_content(&index_entry_oid).unwrap();
+        let index_entry_content =
+            unsafe { String::from_utf8_unchecked(Content::parse(index_entry_oid).unwrap().body) };
         if index_entry_content != workspace_entry_content
             || index_entry.stat.mode != workspace_entry.stat.mode
         {
@@ -148,6 +152,12 @@ pub fn modified_files(
 
     for (path, _) in index.entries.iter() {
         let index_entry = index.entries.get(path).unwrap();
+
+        if !workspace.entries.contains_key(path) {
+            // If the file is in the index but not in the workspace, it's untracked
+            modified_files.insert(path.clone(), "deleted".to_string());
+            continue;
+        }
 
         // if the mode is different, it's a modified file
         if workspace.entries.contains_key(path) {

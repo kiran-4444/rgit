@@ -2,7 +2,7 @@ use anyhow::{anyhow, Result};
 use walkdir::WalkDir;
 
 use std::collections::BTreeMap;
-use std::fs::{self, read};
+use std::fs::{self};
 use std::path::PathBuf;
 
 use crate::index::Stat;
@@ -220,7 +220,8 @@ impl WorkspaceTree {
                             None,
                         );
                     } else {
-                        let content = fs::read_to_string(&file.path).expect("failed to read file");
+                        let content = fs::read(&file.path).expect("failed to read file");
+                        let content = unsafe { String::from_utf8_unchecked(content) };
                         let content = format!("{} {}\0{}", "blob", content.len(), content);
                         let oid = hash_content(&content);
                         let file_entry = FileOrDir::File(File {

@@ -1,4 +1,4 @@
-use crate::{database::storable::Storable, database::Author};
+use crate::{database::storable::Storable, database::Author, database::Content};
 
 #[derive(Debug, Clone)]
 pub struct Commit {
@@ -20,7 +20,9 @@ impl Commit {
         }
     }
 
-    pub fn parse(oid: String, content: Vec<u8>) -> Self {
+    pub fn parse(oid: String) -> Self {
+        let content = Content::parse(&oid).expect("Failed to parse content").body;
+
         let content = String::from_utf8(content).unwrap();
         let mut lines = content.lines();
         let tree = lines.next().unwrap().split(' ').last().unwrap();

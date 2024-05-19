@@ -1,11 +1,9 @@
 use anyhow::Result;
 use colored::ColoredString;
-use flate2::{read::ZlibDecoder, write::ZlibEncoder, Compression};
+use flate2::{write::ZlibEncoder, Compression};
 use sha1::{Digest, Sha1};
 use std::io::prelude::*;
-use std::{fs, path::PathBuf};
-
-use std::io::BufRead;
+use std::path::PathBuf;
 
 pub fn write_to_stdout(content: &str) -> Result<()> {
     let stdout = std::io::stdout();
@@ -43,29 +41,6 @@ pub fn compress_content(content: &str) -> Vec<u8> {
     encoder.finish().expect("Failed to finish compression")
 }
 
-pub fn get_object_path(oid: &str) -> PathBuf {
-    let root_path = get_root_path().expect("Failed to get root path");
-    root_path
-        .join(".rgit")
-        .join("objects")
-        .join(&oid[..2])
-        .join(&oid[2..])
-}
-
-pub fn decompress_content(oid: &str) -> Result<String> {
-    let path = get_object_path(oid);
-    let data = fs::read(path)?;
-    let mut decoder = ZlibDecoder::new(&data[..]);
-    let mut buffer = Vec::new();
-    decoder.read_to_end(&mut buffer)?;
-    let mut cursor = std::io::Cursor::new(buffer);
-    let mut header = Vec::new();
-    cursor.read_until(b'\0', &mut header)?;
-    let mut content = String::new();
-    cursor.read_to_string(&mut content)?;
-    Ok(content)
-}
-
 pub fn get_root_path() -> Result<PathBuf> {
     let current_dir = std::env::current_dir()?;
     if !current_dir.join(".rgit").exists() {
@@ -73,4 +48,22 @@ pub fn get_root_path() -> Result<PathBuf> {
         anyhow::bail!("fatal: not a git repository (or any of the parent directories): .rgit");
     }
     Ok(current_dir)
+}
+
+pub fn is_binary_file(content: &[u8]) -> Result<bool> {
+    Ok(!is_printable(content))
+}
+
+fn is_printable(content: &[u8]) -> bool {
+    if let Ok(text) = std::str::from_utf8(content) {
+        for ch in text.chars() {
+            if !ch.is_control() || ch.is_whitespace() {
+                continue;
+            }
+            return false;
+        }
+        true
+    } else {
+        false
+    }
 }

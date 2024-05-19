@@ -1,3 +1,3 @@
 mod myres;
 
-pub use self::myres::Myres;
+pub use self::myres::{EditType, Myres};
