@@ -28,6 +28,24 @@ impl FileMode {
     }
 }
 
+pub enum ObjectType {
+    Blob,
+    Tree,
+    Commit,
+    Unknown,
+}
+
+impl ObjectType {
+    pub fn from_str(object_type: &str) -> Self {
+        match object_type {
+            "blob" => ObjectType::Blob,
+            "tree" => ObjectType::Tree,
+            "commit" => ObjectType::Commit,
+            _ => ObjectType::Unknown,
+        }
+    }
+}
+
 pub struct Database {
     pub object_store: PathBuf,
     pub objects: Vec<String>,
@@ -74,22 +92,25 @@ impl<'a> Database {
 
         let object_type = String::from_utf8(object_type)?;
         let object_type = object_type.trim_end_matches(' ');
+        let object_type = ObjectType::from_str(&object_type);
 
         let object_size = String::from_utf8(object_size)?;
         let _object_size = object_size.trim_end_matches('\0').parse::<usize>()?;
 
         let parsed_content = match object_type {
-            "blob" => ParsedContent::BlobContent(Blob::parse(oid.to_owned(), content)),
-            "commit" => ParsedContent::CommitContent(Commit::parse(oid.to_owned(), content)),
-            "tree" => {
+            ObjectType::Blob => ParsedContent::BlobContent(Blob::parse(oid.to_owned(), content)),
+            ObjectType::Commit => {
+                ParsedContent::CommitContent(Commit::parse(oid.to_owned(), content))
+            }
+            ObjectType::Tree => {
                 let file_or_dir = Tree::parse(content, None);
                 ParsedContent::TreeContent(FlatTree {
                     entries: file_or_dir,
                 })
             }
 
-            _ => {
-                return Err(anyhow::anyhow!("Unknown object type: {}", object_type));
+            ObjectType::Unknown => {
+                panic!("Unknown object type");
             }
         };
 
