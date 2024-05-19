@@ -65,6 +65,7 @@ impl StatusCMD {
 /// If a file is in the index but not in the commit tree, it's a new file
 /// If a file is in the index and the commit tree but the content is different, it's a modified file
 /// If a file is in the commit tree but not in the index, it's a deleted file
+/// If a file is in the index but not in the workspace, it's deleted
 pub fn tracked_files(index: &FlatIndex, commit_tree: &FlatTree) -> BTreeMap<String, String> {
     let mut tracked_files = BTreeMap::new();
     for (path, _) in index.entries.iter() {
@@ -91,6 +92,7 @@ pub fn tracked_files(index: &FlatIndex, commit_tree: &FlatTree) -> BTreeMap<Stri
             tracked_files.insert(path.clone(), "deleted".to_string());
         }
     }
+
     tracked_files
 }
 
@@ -150,6 +152,12 @@ pub fn modified_files(
 
     for (path, _) in index.entries.iter() {
         let index_entry = index.entries.get(path).unwrap();
+
+        if !workspace.entries.contains_key(path) {
+            // If the file is in the index but not in the workspace, it's untracked
+            modified_files.insert(path.clone(), "deleted".to_string());
+            continue;
+        }
 
         // if the mode is different, it's a modified file
         if workspace.entries.contains_key(path) {
