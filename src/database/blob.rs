@@ -1,4 +1,4 @@
-use crate::database::storable::Storable;
+use crate::database::{storable::Storable, Content};
 
 #[derive(Debug, Clone)]
 pub struct Blob {
@@ -11,8 +11,10 @@ impl Blob {
         Self { oid: None, data }
     }
 
-    pub fn parse(oid: String, content: Vec<u8>) -> Self {
-        let content = String::from_utf8(content).unwrap();
+    pub fn parse(oid: String) -> Self {
+        let content =
+            String::from_utf8(Content::parse(&oid).expect("Failed to parse content").body)
+                .expect("Failed to convert content to string");
         Self {
             oid: Some(oid),
             data: content,

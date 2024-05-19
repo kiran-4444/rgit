@@ -8,7 +8,7 @@ use std::{
 };
 
 use crate::{
-    database::{storable::Storable, Database, FileMode},
+    database::{storable::Storable, Content, Database, FileMode},
     index::Index,
     utils::get_object_path,
     workspace::{Dir, File, FileOrDir},
@@ -39,7 +39,12 @@ impl Tree {
         }
     }
 
-    pub fn parse(content: Vec<u8>, current_parent: Option<String>) -> BTreeMap<String, File> {
+    pub fn parse(oid: String) -> BTreeMap<String, File> {
+        let content = Content::parse(&oid).expect("Failed to parse content").body;
+        Tree::_parse(content, None)
+    }
+
+    fn _parse(content: Vec<u8>, current_parent: Option<String>) -> BTreeMap<String, File> {
         let mut cursor = std::io::Cursor::new(content);
         let mut entries = BTreeMap::new();
 
@@ -71,7 +76,7 @@ impl Tree {
                         Some(parent) => format!("{}/{}", parent, name),
                         None => name.to_owned(),
                     };
-                    let child_tree = Tree::parse(content, Some(parent_path.to_owned()));
+                    let child_tree = Tree::_parse(content, Some(parent_path.to_owned()));
                     entries.extend(child_tree);
                 }
                 _ => {
