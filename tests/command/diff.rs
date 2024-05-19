@@ -18,7 +18,6 @@ fn test_diff() {
     let myres = Myres::new(a.to_string(), b.to_string());
     let hunks = myres.diff();
 
-    dbg!(&hunks);
     assert_eq!(hunks.len(), 1);
 
     let hunk = &hunks[0];
