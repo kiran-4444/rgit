@@ -2,6 +2,7 @@ use anyhow::Result;
 use clap::Subcommand;
 
 mod add;
+mod branch;
 mod commit;
 mod diff;
 mod init;
@@ -23,6 +24,9 @@ pub enum GitCMD {
 
     /// Show diff
     Diff(diff::DiffCMD),
+
+    /// Branch operations
+    Branch(branch::BranchCMD),
 }
 
 impl GitCMD {
@@ -33,6 +37,7 @@ impl GitCMD {
             GitCMD::Status(status) => status.run()?,
             GitCMD::Add(add) => add.run()?,
             GitCMD::Diff(diff) => diff.run()?,
+            GitCMD::Branch(branch) => branch.run()?,
         }
         Ok(())
     }

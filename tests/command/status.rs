@@ -6,40 +6,7 @@ use std::{
 };
 use tempdir::TempDir;
 
-use crate::setup::{get_rgit_cmd, setup_rgit};
-
-fn setup_fs(tempdir: &TempDir) -> Result<()> {
-    // create the following directory structure:
-    // ├── .rgitignore
-    // ├── a.txt
-    // ├── b.txt
-    // ├── c.txt
-    // ├── d.txt
-    // ├── f
-    // │   └── g.txt
-    // ├── k
-    // │   └── l
-    // │       └── m
-    // │           ├── o.txt
-    // │           └── q.txt
-    // ├── l.txt
-    // └── run.sh
-
-    let root = tempdir.path();
-    fs::create_dir_all(root.join("f"))?;
-    fs::create_dir_all(root.join("k/l/m"))?;
-    write(root.join("a.txt"), "a")?;
-    write(root.join("b.txt"), "b")?;
-    write(root.join("c.txt"), "c")?;
-    write(root.join("d.txt"), "d")?;
-    write(root.join("f/g.txt"), "g")?;
-    write(root.join("k/l/m/o.txt"), "o")?;
-    write(root.join("k/l/m/q.txt"), "q")?;
-    write(root.join("l.txt"), "l")?;
-    write(root.join("run.sh"), "run")?;
-
-    Ok(())
-}
+use crate::setup::{get_rgit_cmd, setup_fs, setup_rgit};
 
 #[test]
 fn test_fresh_status_command() -> Result<()> {
