@@ -1,11 +1,11 @@
 default:
-    cargo run --bin r_git help
+    cargo run --bin rgit help
 
 scratch:
   cargo run --bin scratch
 
 run +args:
-    cargo run --bin r_git {{args}}
+    cargo run --bin rgit {{args}}
 
 build:
     cargo build

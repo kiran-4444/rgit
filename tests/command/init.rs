@@ -3,7 +3,7 @@ use std::process::Command; // Run programs
 
 #[test]
 fn test_init_with_no_args() {
-    let mut cmd = Command::cargo_bin("r_git").expect("Failed to build binary");
+    let mut cmd = Command::cargo_bin("rgit").expect("Failed to build binary");
     cmd.arg("init").assert().success();
 
     // check if the .rgit directory is created
@@ -28,7 +28,7 @@ fn test_init_with_no_args() {
 
 #[test]
 fn test_init_with_args() {
-    let mut cmd = Command::cargo_bin("r_git").expect("Failed to build binary");
+    let mut cmd = Command::cargo_bin("rgit").expect("Failed to build binary");
     cmd.arg("init").arg("sub_path").assert().success();
 
     // check if the .rgit directory is created

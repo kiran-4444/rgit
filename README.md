@@ -30,19 +30,19 @@ cargo build --release
 This will create an executable in the `target/release` directory. You can then add this directory to your `PATH` to use `rgit` from anywhere like this:
 
 ```bash
-export PATH=$PATH:/path/to/rgit/target/release/r_git
+export PATH=$PATH:/path/to/rgit/target/release/rgit
 ```
 
 ## Usage
 
 ```bash
 ~/test_rgit git:(master) ✗ rgit
-r_git 1.0.0
+rgit 1.0.0
 Chandra Kiran G
 A simple git clone written in Rust
 
 Usage:
-  r_git <COMMAND>
+  rgit <COMMAND>
 
 Commands:
   init    Initialize a new git repository

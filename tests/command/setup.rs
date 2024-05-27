@@ -3,7 +3,7 @@ use assert_cmd::prelude::*;
 use std::{fs::write, path::PathBuf, process::Command};
 
 pub fn get_rgit_cmd() -> Command {
-    Command::cargo_bin("r_git").expect("Failed to build binary")
+    Command::cargo_bin("rgit").expect("Failed to build binary")
 }
 
 pub fn get_git_cmd() -> Command {
@@ -11,7 +11,7 @@ pub fn get_git_cmd() -> Command {
 }
 
 pub fn setup_rgit(path: &PathBuf) -> Result<()> {
-    let mut cmd = Command::cargo_bin("r_git")?;
+    let mut cmd = Command::cargo_bin("rgit")?;
     cmd.current_dir(&path).arg("init").assert().success();
     let rgitignore_path = path.join(".rgitignore");
     write(rgitignore_path, ".git/").expect("Failed to write .rgitignore file");
