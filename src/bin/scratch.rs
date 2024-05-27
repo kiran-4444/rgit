@@ -1,4 +1,4 @@
-use r_git::database::FileMode;
+use rgit::database::FileMode;
 
 fn main() {
     let mode = FileMode::Regular;

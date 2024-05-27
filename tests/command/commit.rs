@@ -6,7 +6,7 @@ use tempdir::TempDir;
 
 #[test]
 fn test_commit_without_root_should_fail() {
-    let mut cmd = Command::cargo_bin("r_git").expect("Failed to build binary");
+    let mut cmd = Command::cargo_bin("rgit").expect("Failed to build binary");
     cmd.arg("commit")
         .arg("-m")
         .arg("Initial commit")

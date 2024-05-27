@@ -1,4 +1,4 @@
-use r_git::diff::{EditType, Myres};
+use rgit::diff::{EditType, Myres};
 
 #[test]
 fn test_diff() {
