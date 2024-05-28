@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 
 use crate::{
-    refs::{parse_revision, Refs, Revision},
+    refs::{parse_revision, Refs},
     utils::{get_root_path, write_to_stdout},
 };
 

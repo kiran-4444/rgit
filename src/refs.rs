@@ -9,21 +9,20 @@ use std::{
 use crate::{
     database::{Commit, Database, ParsedContent},
     lockfile::Lockfile,
-    utils::{get_root_path, write_to_stderr},
+    utils::write_to_stderr,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ref {
     name: String,
 }
 
 impl Ref {
     pub fn resolve(&self, context: &Refs) -> Option<String> {
-        let content = context.get_specific_ref_content(self.name.as_str());
         return Some(context.get_specific_ref_content(self.name.as_str()));
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Parent {
     rev: Box<Revision>,
 }
@@ -35,14 +34,15 @@ impl Parent {
         match content {
             Some(c) => Some(c),
             None => {
-                write_to_stderr("fatal: Not a valid object name: 'HEAD'").unwrap();
+                let output = format!("fatal: Not a valid object name: '{}'", ref_content.unwrap());
+                write_to_stderr(&output).unwrap();
                 exit(1);
             }
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Ancestor {
     rev: Box<Revision>,
     num: i32,
@@ -68,7 +68,7 @@ impl Ancestor {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Revision {
     Parent(Parent),
     Ancestor(Ancestor),
@@ -280,6 +280,7 @@ impl Refs {
 
     pub fn get_specific_ref_content(&self, ref_name: &str) -> String {
         let ref_path = self.git_path.join("refs/heads").join(ref_name);
+        // dbg!(&ref_path);
         if !ref_path.exists() {
             write_to_stderr(&format!("fatal: Not a valid object name: '{}'", ref_name)).unwrap();
             exit(1);

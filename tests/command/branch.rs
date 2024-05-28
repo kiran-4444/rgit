@@ -189,6 +189,47 @@ fn test_list_branches_command() -> Result<()> {
 }
 
 #[test]
+fn text_invalid_revisions() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+    setup_fs(&temp_dir).expect("Failed to setup fs");
+    setup_rgit(&temp_dir.path().to_path_buf()).expect("Failed to setup rgit");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Initial commit")
+        .assert()
+        .success();
+
+    let invalid_revisions = vec!["asdf", "HEAD^", "HEAD~", "HEAD~1", "HEAD~2", "HEAD~3"];
+
+    for revision in invalid_revisions {
+        let mut cmd = get_rgit_cmd();
+        cmd.current_dir(&temp_dir)
+            .arg("branch")
+            .arg("test-branch")
+            .arg(revision)
+            .assert()
+            .failure();
+
+        let expected_output = format!("fatal: Not a valid object name: '{}'\n", revision);
+        let output = cmd.output().expect("Failed to run command");
+
+        assert_eq!(String::from_utf8(output.stderr)?, expected_output);
+    }
+
+    Ok(())
+}
+
+#[test]
 fn test_revisions_in_branch_command() -> Result<()> {
     let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
     setup_fs(&temp_dir).expect("Failed to setup fs");

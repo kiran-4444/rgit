@@ -1,6 +1,4 @@
-use std::path::{Path, PathBuf};
-
-use itertools::Itertools;
+use std::path::PathBuf;
 
 use crate::{database::storable::Storable, database::Author, database::Content};
 

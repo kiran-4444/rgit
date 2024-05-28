@@ -1,12 +1,9 @@
 use crate::{
-    database::{Commit, Database, ParsedContent},
-    refs::{parse_revision, Refs, Revision},
+    refs::Refs,
     utils::{get_root_path, write_to_stdout},
 };
 use anyhow::Result;
 use clap::Parser;
-
-use super::commit;
 
 #[derive(Debug, Parser, PartialEq, Eq)]
 pub struct LogCMD {}
