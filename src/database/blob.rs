@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::database::{storable::Storable, Content};
 
 #[derive(Debug, Clone)]
@@ -12,9 +14,13 @@ impl Blob {
     }
 
     pub fn parse(oid: String) -> Self {
-        let content =
-            String::from_utf8(Content::parse(&oid).expect("Failed to parse content").body)
-                .expect("Failed to convert content to string");
+        let object_store = PathBuf::from(".rgit/objects");
+        let content = String::from_utf8(
+            Content::parse(&oid, object_store)
+                .expect("Failed to parse content")
+                .body,
+        )
+        .expect("Failed to convert content to string");
         Self {
             oid: Some(oid),
             data: content,

@@ -6,16 +6,16 @@ struct Ref {
 }
 #[derive(Debug)]
 struct Parent {
-    rev: Box<RefType>,
+    rev: Box<Revision>,
 }
 #[derive(Debug)]
 struct Ancestor {
-    rev: Box<RefType>,
+    rev: Box<Revision>,
     num: i32,
 }
 
 #[derive(Debug)]
-enum RefType {
+enum Revision {
     Parent(Parent),
     Ancestor(Ancestor),
     Ref(Ref),
@@ -27,7 +27,7 @@ fn main() {
     dbg!(ref_type);
 }
 
-fn parse(hay: &str) -> RefType {
+fn parse(hay: &str) -> Revision {
     let parent_re = Regex::new(r"^(.+)\^$").unwrap();
     let revision_re = Regex::new(r"^(.+)~(\d+)$").unwrap();
 
@@ -37,7 +37,7 @@ fn parse(hay: &str) -> RefType {
 
         let ref_type = parse(rev);
         let box_ref_type = Box::new(ref_type);
-        return RefType::Parent(Parent { rev: box_ref_type });
+        return Revision::Parent(Parent { rev: box_ref_type });
     } else if revision_re.is_match(hay) {
         let caps = revision_re.captures(hay).unwrap();
         let rev = caps.get(1).unwrap().as_str();
@@ -45,17 +45,17 @@ fn parse(hay: &str) -> RefType {
 
         let ref_type = parse(rev);
         let box_ref_type = Box::new(ref_type);
-        return RefType::Ancestor(Ancestor {
+        return Revision::Ancestor(Ancestor {
             rev: box_ref_type,
             num,
         });
     } else {
         if hay == "@" {
-            return RefType::Ref(Ref {
+            return Revision::Ref(Ref {
                 name: "HEAD".to_string(),
             });
         }
-        return RefType::Ref(Ref {
+        return Revision::Ref(Ref {
             name: hay.to_string(),
         });
     }

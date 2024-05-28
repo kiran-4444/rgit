@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs};
+use std::{collections::BTreeMap, fs, path::PathBuf};
 
 use anyhow::Result;
 use clap::Parser;
@@ -76,11 +76,14 @@ pub fn tracked_files(index: &FlatIndex, commit_tree: &FlatTree) -> BTreeMap<Stri
 
         let commit_entry = commit_tree.entries.get(path).unwrap();
         let commit_entry_oid = commit_entry.oid.as_ref().unwrap();
-        let commit_entry_content = Content::parse(commit_entry_oid).unwrap().body;
+        let object_store = PathBuf::from(".rgit/objects");
+        let commit_entry_content = Content::parse(commit_entry_oid, object_store.clone())
+            .unwrap()
+            .body;
 
         let index_entry = index.entries.get(path).unwrap();
         let index_entry_oid = index_entry.oid.as_ref().unwrap();
-        let index_entry_content = Content::parse(index_entry_oid).unwrap().body;
+        let index_entry_content = Content::parse(index_entry_oid, object_store).unwrap().body;
 
         if index_entry_content != commit_entry_content {
             tracked_files.insert(path.clone(), "modified".to_string());
@@ -141,8 +144,10 @@ pub fn modified_files(
 
         let index_entry = index.entries.get(path).unwrap();
         let index_entry_oid = index_entry.oid.as_ref().unwrap();
-        let index_entry_content =
-            unsafe { String::from_utf8_unchecked(Content::parse(index_entry_oid).unwrap().body) };
+        let object_store = PathBuf::from(".rgit/objects");
+        let index_entry_content = unsafe {
+            String::from_utf8_unchecked(Content::parse(index_entry_oid, object_store).unwrap().body)
+        };
         if index_entry_content != workspace_entry_content
             || index_entry.stat.mode != workspace_entry.stat.mode
         {

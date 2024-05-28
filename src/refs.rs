@@ -6,7 +6,118 @@ use std::{
     process::exit,
 };
 
-use crate::{lockfile::Lockfile, utils::write_to_stderr};
+use crate::{
+    database::{Commit, Database, ParsedContent},
+    lockfile::Lockfile,
+    utils::{get_root_path, write_to_stderr},
+};
+
+#[derive(Debug)]
+pub struct Ref {
+    name: String,
+}
+
+impl Ref {
+    pub fn resolve(&self, context: &Refs) -> Option<String> {
+        let content = context.get_specific_ref_content(self.name.as_str());
+        return Some(context.get_specific_ref_content(self.name.as_str()));
+    }
+}
+#[derive(Debug)]
+pub struct Parent {
+    rev: Box<Revision>,
+}
+
+impl Parent {
+    pub fn resolve(&self, context: &Refs) -> Option<String> {
+        let ref_content = self.rev.resolve(context);
+        let content = context.commit_parent(Some(&ref_content.as_ref().unwrap()));
+        match content {
+            Some(c) => Some(c),
+            None => {
+                write_to_stderr("fatal: Not a valid object name: 'HEAD'").unwrap();
+                exit(1);
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Ancestor {
+    rev: Box<Revision>,
+    num: i32,
+}
+
+impl Ancestor {
+    pub fn resolve(&self, context: &Refs) -> Option<String> {
+        let mut oid = self.rev.resolve(context);
+
+        for _ in 0..self.num {
+            let parent = context.commit_parent(Some(&oid.as_ref().unwrap()));
+            match parent {
+                Some(p) => {
+                    oid = Some(p);
+                }
+                None => {
+                    write_to_stderr("fatal: Not a valid object name: 'HEAD'").unwrap();
+                    exit(1);
+                }
+            }
+        }
+        return oid;
+    }
+}
+
+#[derive(Debug)]
+pub enum Revision {
+    Parent(Parent),
+    Ancestor(Ancestor),
+    Ref(Ref),
+}
+
+impl Revision {
+    pub fn resolve(&self, context: &Refs) -> Option<String> {
+        match self {
+            Revision::Parent(parent) => parent.resolve(context),
+            Revision::Ancestor(ancestor) => ancestor.resolve(context),
+            Revision::Ref(r) => r.resolve(context),
+        }
+    }
+}
+
+pub fn parse_revision(pattern: &str) -> Revision {
+    let parent_re = Regex::new(r"^(.+)\^$").unwrap();
+    let revision_re = Regex::new(r"^(.+)~(\d+)$").unwrap();
+
+    if parent_re.is_match(pattern) {
+        let caps = parent_re.captures(pattern).unwrap();
+        let rev = caps.get(1).unwrap().as_str();
+
+        let ref_type = parse_revision(rev);
+        let box_ref_type = Box::new(ref_type);
+        return Revision::Parent(Parent { rev: box_ref_type });
+    } else if revision_re.is_match(pattern) {
+        let caps = revision_re.captures(pattern).unwrap();
+        let rev = caps.get(1).unwrap().as_str();
+        let num = caps.get(2).unwrap().as_str().parse::<i32>().unwrap();
+
+        let ref_type = parse_revision(rev);
+        let box_ref_type = Box::new(ref_type);
+        return Revision::Ancestor(Ancestor {
+            rev: box_ref_type,
+            num,
+        });
+    } else {
+        if pattern == "@" || pattern == "HEAD" {
+            return Revision::Ref(Ref {
+                name: "master".to_string(),
+            });
+        }
+        return Revision::Ref(Ref {
+            name: pattern.to_string(),
+        });
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Refs {
@@ -16,6 +127,48 @@ pub struct Refs {
 impl Refs {
     pub fn new(git_path: PathBuf) -> Self {
         Refs { git_path }
+    }
+
+    pub fn commit_parent(&self, oid: Option<&str>) -> Option<String> {
+        match oid {
+            Some(oid) => {
+                let database = Database::new(self.git_path.join("objects").clone());
+                let commit = database.read_object(oid);
+                let commit = commit.expect("Failed to read commit");
+
+                match commit {
+                    ParsedContent::CommitContent(commit) => match commit.parent {
+                        Some(parent) => Some(parent),
+                        None => None,
+                    },
+                    _ => panic!("should not happen"),
+                }
+            }
+            None => None,
+        }
+    }
+
+    pub fn get_all_commits(&self) -> Result<Vec<Commit>> {
+        let mut head = self.read_head().unwrap();
+        let database = Database::new(self.git_path.join("objects").clone());
+        let mut commits = vec![];
+
+        loop {
+            let commit = database.read_object(&head).unwrap();
+            match commit {
+                ParsedContent::CommitContent(commit) => {
+                    commits.push(commit.clone());
+                    match commit.parent {
+                        Some(parent) => {
+                            head = parent;
+                        }
+                        None => break,
+                    }
+                }
+                _ => panic!("should not happen"),
+            }
+        }
+        Ok(commits)
     }
 
     pub fn update_head(&self, oid: &str) -> Result<()> {
@@ -58,7 +211,7 @@ impl Refs {
     /// Create a new branch
     /// # Arguments
     /// * `branch_name` - The name of the branch to create
-    pub fn create_branch(&self, branch_name: &str) -> Result<()> {
+    pub fn create_branch(&self, branch_name: &str, oid: &str) -> Result<()> {
         let branch_ref_path = self.git_path.join("refs/heads").join(branch_name);
 
         if branch_ref_path.exists() {
@@ -94,8 +247,7 @@ impl Refs {
             exit(1);
         }
 
-        let head_ref_content = self.read_ref_content();
-        self.update_ref_file(&branch_ref_path, &head_ref_content)?;
+        self.update_ref_file(&branch_ref_path, oid)?;
 
         Ok(())
     }
@@ -114,6 +266,26 @@ impl Refs {
         lockfile.write(b"\n")?;
         lockfile.commit()?;
         Ok(())
+    }
+
+    pub fn get_ref_content(&self) -> String {
+        let ref_path = self.get_ref_path();
+        if !ref_path.exists() {
+            write_to_stderr("fatal: Not a valid object name: 'HEAD'").unwrap();
+            exit(1);
+        }
+        let ref_content = fs::read_to_string(ref_path).expect("Failed to read ref");
+        ref_content.trim().to_string()
+    }
+
+    pub fn get_specific_ref_content(&self, ref_name: &str) -> String {
+        let ref_path = self.git_path.join("refs/heads").join(ref_name);
+        if !ref_path.exists() {
+            write_to_stderr(&format!("fatal: Not a valid object name: '{}'", ref_name)).unwrap();
+            exit(1);
+        }
+        let ref_content = fs::read_to_string(ref_path).expect("Failed to read ref");
+        ref_content.trim().to_string()
     }
 
     fn read_ref_content(&self) -> String {

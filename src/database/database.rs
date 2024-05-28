@@ -67,10 +67,8 @@ pub struct Header {
 }
 
 impl Header {
-    pub fn parse(oid: &str) -> Self {
-        let object_path = PathBuf::from(".rgit/objects")
-            .join(&oid[0..2])
-            .join(&oid[2..]);
+    pub fn parse(oid: &str, object_store: PathBuf) -> Self {
+        let object_path = object_store.join(&oid[0..2]).join(&oid[2..]);
         let data = read(object_path).unwrap();
 
         let mut decompressed = ZlibDecoder::new(&data[..]);
@@ -106,10 +104,8 @@ pub struct Content {
 }
 
 impl Content {
-    pub fn parse(oid: &str) -> Result<Self> {
-        let object_path = PathBuf::from(".rgit/objects")
-            .join(&oid[0..2])
-            .join(&oid[2..]);
+    pub fn parse(oid: &str, object_store: PathBuf) -> Result<Self> {
+        let object_path = object_store.join(&oid[0..2]).join(&oid[2..]);
 
         let data = read(object_path)?;
 
@@ -124,7 +120,7 @@ impl Content {
         let mut body = Vec::new();
         cursor.read_to_end(&mut body)?;
 
-        let header = Header::parse(&oid);
+        let header = Header::parse(&oid, object_store);
 
         Ok(Content { header, body })
     }
@@ -151,11 +147,14 @@ impl<'a> Database {
     }
 
     pub fn read_object(&self, oid: &str) -> Result<ParsedContent> {
-        let header = Header::parse(oid);
+        let header = Header::parse(oid, self.object_store.clone());
 
         let parsed_content = match header.object_type {
             ObjectType::Blob => ParsedContent::BlobContent(Blob::parse(oid.to_owned())),
-            ObjectType::Commit => ParsedContent::CommitContent(Commit::parse(oid.to_owned())),
+            ObjectType::Commit => ParsedContent::CommitContent(Commit::parse(
+                oid.to_owned(),
+                self.object_store.clone(),
+            )),
             ObjectType::Tree => {
                 let file_or_dir = Tree::parse(oid.to_owned());
                 ParsedContent::TreeContent(FlatTree {

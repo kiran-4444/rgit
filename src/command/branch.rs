@@ -2,21 +2,19 @@ use anyhow::Result;
 use clap::Parser;
 
 use crate::{
-    refs::Refs,
+    refs::{parse_revision, Refs, Revision},
     utils::{get_root_path, write_to_stdout},
 };
 
 #[derive(Debug, Parser, PartialEq, Eq)]
-#[clap(author, version, about = "A simple git branch CLI tool")]
 pub struct BranchCMD {
     #[arg(short, long)]
     delete: Option<String>,
 
-    #[arg(required = false)]
-    name: Option<String>,
-
     #[arg(long)]
     list: bool,
+
+    name: Vec<String>,
 }
 
 impl BranchCMD {
@@ -26,12 +24,26 @@ impl BranchCMD {
         let refs = Refs::new(git_path);
         if self.list {
             self.list_branches()?;
-        } else if let Some(name) = self.name {
-            let output = format!("Create branch: {}", &name);
-            write_to_stdout(&output)?;
-            refs.create_branch(&name)?;
         } else if let Some(name) = self.delete {
             println!("Delete branch: {}", name);
+        } else if !self.name.is_empty() {
+            let name = &self.name;
+            if name.len() == 1 {
+                let name = &name[0];
+                let output = format!("Create branch: {}", name);
+                write_to_stdout(&output)?;
+                let oid = refs.get_ref_content();
+                refs.create_branch(name, &oid)?;
+            } else if name.len() == 2 {
+                let branch_name = &name[0];
+                let rev = &name[1];
+                let revision_object = parse_revision(rev);
+                let oid = revision_object.resolve(&refs).expect("OID");
+                refs.create_branch(branch_name, &oid)?;
+            } else {
+                let output = "Invalid branch format".to_string();
+                write_to_stdout(&output)?;
+            }
         } else {
             self.list_branches()?;
         }

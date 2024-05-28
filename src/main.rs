@@ -26,7 +26,7 @@ static HELP_TEMPLATE: &str = "\
 {all-args}{after-help}";
 
 /// A simple git clone written in Rust
-#[derive(Debug, Parser, PartialEq)]
+#[derive(Debug, Parser)]
 #[command(author = "Chandra Kiran G", version = VERSION, help_template(HELP_TEMPLATE))]
 struct RGit {
     #[command(subcommand)]

@@ -1,3 +1,7 @@
+use std::path::{Path, PathBuf};
+
+use itertools::Itertools;
+
 use crate::{database::storable::Storable, database::Author, database::Content};
 
 #[derive(Debug, Clone)]
@@ -20,26 +24,56 @@ impl Commit {
         }
     }
 
-    pub fn parse(oid: String) -> Self {
-        let content = Content::parse(&oid).expect("Failed to parse content").body;
+    pub fn parse(oid: String, object_store: PathBuf) -> Self {
+        let content = Content::parse(&oid, object_store)
+            .expect("Failed to parse content")
+            .body;
 
         let content = String::from_utf8(content).unwrap();
         let mut lines = content.lines();
         let tree = lines.next().unwrap().split(' ').last().unwrap();
-        let parent = lines
-            .next()
-            .map(|line| line.split(' ').last().unwrap())
-            .map(|parent| parent.to_owned());
-        let author = Author::parse(lines.next().clone().unwrap());
-        let message = lines.skip(2).collect::<Vec<_>>().join("\n");
 
-        Self {
-            parent,
-            oid: Some(oid),
-            tree: tree.to_owned(),
-            author,
-            message,
+        if content.contains("parent") {
+            let parent = lines
+                .next()
+                .map(|line| line.split(' ').last().unwrap())
+                .map(|parent| parent.to_owned());
+            let author = Author::parse(lines.next().clone().unwrap());
+            let message = lines.skip(2).collect::<Vec<_>>().join("\n");
+
+            Self {
+                parent,
+                oid: Some(oid),
+                tree: tree.to_owned(),
+                author,
+                message,
+            }
+        } else {
+            let author = Author::parse(lines.next().clone().unwrap());
+            let message = lines.skip(2).collect::<Vec<_>>().join("\n");
+
+            Self {
+                parent: None,
+                oid: Some(oid),
+                tree: tree.to_owned(),
+                author,
+                message,
+            }
         }
+        // let parent = lines
+        //     .next()
+        //     .map(|line| line.split(' ').last().unwrap())
+        //     .map(|parent| parent.to_owned());
+        // let author = Author::parse(lines.next().clone().unwrap());
+        // let message = lines.skip(2).collect::<Vec<_>>().join("\n");
+
+        // Self {
+        //     parent,
+        //     oid: Some(oid),
+        //     tree: tree.to_owned(),
+        //     author,
+        //     message,
+        // }
     }
 }
 

@@ -40,7 +40,10 @@ impl Tree {
     }
 
     pub fn parse(oid: String) -> BTreeMap<String, File> {
-        let content = Content::parse(&oid).expect("Failed to parse content").body;
+        let object_store = PathBuf::from(".rgit/objects");
+        let content = Content::parse(&oid, object_store)
+            .expect("Failed to parse content")
+            .body;
         Tree::_parse(content, None)
     }
 
@@ -67,7 +70,10 @@ impl Tree {
 
             match mode {
                 FileMode::Directory => {
-                    let content = Content::parse(&oid).expect("Failed to parse content").body;
+                    let object_store = PathBuf::from(".rgit/objects");
+                    let content = Content::parse(&oid, object_store)
+                        .expect("Failed to parse content")
+                        .body;
 
                     let parent_path = match &current_parent {
                         Some(parent) => format!("{}/{}", parent, name),

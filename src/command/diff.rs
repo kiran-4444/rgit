@@ -106,7 +106,8 @@ impl DiffCMD {
         println!("{}", output.bold());
 
         let index_entry_oid = index_file.oid.as_ref().unwrap();
-        let index_entry_content_bytes = Content::parse(index_entry_oid)
+        let object_store = PathBuf::from(".rgit").join("objects");
+        let index_entry_content_bytes = Content::parse(index_entry_oid, object_store)
             .expect("failed to get content")
             .body;
 
@@ -155,7 +156,8 @@ impl DiffCMD {
         println!("{}", output.bold());
 
         let index_entry_oid = index_file.oid.as_ref().unwrap();
-        let index_entry_content_bytes = Content::parse(index_entry_oid)
+        let object_store = PathBuf::from(".rgit").join("objects");
+        let index_entry_content_bytes = Content::parse(index_entry_oid, object_store)
             .expect("failed to get content")
             .body;
 
@@ -227,8 +229,9 @@ impl DiffCMD {
             .expect("failed to parse content to utf8");
 
         let index_entry_oid = index_file.oid.as_ref().unwrap();
+        let object_store = PathBuf::from(".rgit").join("objects");
         let index_entry_content = String::from_utf8(
-            Content::parse(index_entry_oid)
+            Content::parse(index_entry_oid, object_store)
                 .expect("failed to get content")
                 .body,
         )

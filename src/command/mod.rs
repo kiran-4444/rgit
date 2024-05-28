@@ -6,9 +6,10 @@ mod branch;
 mod commit;
 mod diff;
 mod init;
+mod log;
 mod status;
 
-#[derive(Subcommand, Debug, PartialEq)]
+#[derive(Subcommand, Debug)]
 pub enum GitCMD {
     /// Initialize a new git repository
     Init(init::InitCMD),
@@ -27,6 +28,9 @@ pub enum GitCMD {
 
     /// Branch operations
     Branch(branch::BranchCMD),
+
+    /// Log
+    Log(log::LogCMD),
 }
 
 impl GitCMD {
@@ -38,6 +42,7 @@ impl GitCMD {
             GitCMD::Add(add) => add.run()?,
             GitCMD::Diff(diff) => diff.run()?,
             GitCMD::Branch(branch) => branch.run()?,
+            GitCMD::Log(log) => log.run()?,
         }
         Ok(())
     }
