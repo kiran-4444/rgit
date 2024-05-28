@@ -16,9 +16,6 @@ impl LogCMD {
         let root_path = get_root_path()?;
         let git_path = root_path.join(".rgit");
         let refs = Refs::new(git_path.clone());
-        let database = Database::new(git_path.clone().join("objects"));
-
-        let mut head = refs.read_head().unwrap();
 
         let commits = refs.get_all_commits()?;
 
