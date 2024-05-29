@@ -14,6 +14,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct Ref {
+    revision_pattern: String,
     name: String,
 }
 
@@ -25,6 +26,7 @@ impl Ref {
 #[derive(Debug, Clone)]
 pub struct Parent {
     rev: Box<Revision>,
+    revision_pattern: String,
 }
 
 impl Parent {
@@ -34,7 +36,11 @@ impl Parent {
         match content {
             Some(c) => Some(c),
             None => {
-                let output = format!("fatal: Not a valid object name: '{}'", ref_content.unwrap());
+                let output = format!(
+                    "fatal: Not a valid object name: '{}'",
+                    self.revision_pattern
+                );
+
                 write_to_stderr(&output).unwrap();
                 exit(1);
             }
@@ -45,6 +51,7 @@ impl Parent {
 #[derive(Debug, Clone)]
 pub struct Ancestor {
     rev: Box<Revision>,
+    revision_pattern: String,
     num: i32,
 }
 
@@ -59,7 +66,11 @@ impl Ancestor {
                     oid = Some(p);
                 }
                 None => {
-                    write_to_stderr("fatal: Not a valid object name: 'HEAD'").unwrap();
+                    let output = format!(
+                        "fatal: Not a valid object name: '{}'",
+                        self.revision_pattern
+                    );
+                    write_to_stderr(&output).unwrap();
                     exit(1);
                 }
             }
@@ -85,7 +96,7 @@ impl Revision {
     }
 }
 
-pub fn parse_revision(pattern: &str) -> Revision {
+pub fn parse_revision(pattern: &str, revision_pattern: &str) -> Revision {
     let parent_re = Regex::new(r"^(.+)\^$").unwrap();
     let revision_re = Regex::new(r"^(.+)~(\d+)$").unwrap();
 
@@ -93,28 +104,34 @@ pub fn parse_revision(pattern: &str) -> Revision {
         let caps = parent_re.captures(pattern).unwrap();
         let rev = caps.get(1).unwrap().as_str();
 
-        let ref_type = parse_revision(rev);
+        let ref_type = parse_revision(rev, revision_pattern);
         let box_ref_type = Box::new(ref_type);
-        return Revision::Parent(Parent { rev: box_ref_type });
+        return Revision::Parent(Parent {
+            rev: box_ref_type,
+            revision_pattern: revision_pattern.to_string(),
+        });
     } else if revision_re.is_match(pattern) {
         let caps = revision_re.captures(pattern).unwrap();
         let rev = caps.get(1).unwrap().as_str();
         let num = caps.get(2).unwrap().as_str().parse::<i32>().unwrap();
 
-        let ref_type = parse_revision(rev);
+        let ref_type = parse_revision(rev, revision_pattern);
         let box_ref_type = Box::new(ref_type);
         return Revision::Ancestor(Ancestor {
             rev: box_ref_type,
             num,
+            revision_pattern: revision_pattern.to_string(),
         });
     } else {
         if pattern == "@" || pattern == "HEAD" {
             return Revision::Ref(Ref {
                 name: "master".to_string(),
+                revision_pattern: revision_pattern.to_string(),
             });
         }
         return Revision::Ref(Ref {
             name: pattern.to_string(),
+            revision_pattern: revision_pattern.to_string(),
         });
     }
 }
