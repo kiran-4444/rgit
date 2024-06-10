@@ -1,5 +1,6 @@
 use anyhow::Result;
 use flate2::read::ZlibDecoder;
+use predicates::name;
 use std::fs::{read, rename, File};
 use std::io::{prelude::*, Cursor};
 
@@ -170,6 +171,31 @@ impl<'a> Database {
         Ok(parsed_content)
     }
 
+    pub fn read_commits(&self) -> Result<Vec<Commit>> {
+        let root_part = get_root_path()?;
+        let git_path = root_part.join(".rgit");
+        let refs = Refs::new(git_path);
+        let parent = refs.read_head();
+
+        let mut commits = Vec::new();
+        let mut current_oid = parent.unwrap();
+        loop {
+            let commit = self.read_object(&current_oid).unwrap();
+            match commit {
+                ParsedContent::CommitContent(commit) => {
+                    commits.push(commit.clone());
+                    match commit.parent {
+                        Some(oid) => current_oid = oid,
+                        None => break,
+                    }
+                }
+                _ => panic!("should not happen"),
+            }
+        }
+
+        Ok(commits)
+    }
+
     pub fn read_head(&self) -> Result<FlatTree> {
         let root_part = get_root_path()?;
         let git_path = root_part.join(".rgit");
@@ -210,6 +236,20 @@ impl<'a> Database {
         storable.set_oid(hashed_content.to_owned());
         self.write_object(&hashed_content, &content)?;
         Ok(())
+    }
+
+    pub fn prefix_match(&self, prefix: &str) -> Vec<String> {
+        let commits = self.read_commits().unwrap();
+        dbg!(&commits);
+
+        let mut matched = Vec::new();
+        for commit in commits {
+            if commit.message.starts_with(prefix) {
+                matched.push(commit.oid.unwrap());
+            }
+        }
+
+        matched
     }
 
     pub fn write_object(&self, name: &str, content: &str) -> Result<()> {

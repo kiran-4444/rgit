@@ -297,13 +297,16 @@ impl Refs {
 
     pub fn get_specific_ref_content(&self, ref_name: &str) -> String {
         let ref_path = self.git_path.join("refs/heads").join(ref_name);
-        // dbg!(&ref_path);
-        if !ref_path.exists() {
+        if ref_path.exists() {
+            let ref_content = fs::read_to_string(ref_path).expect("Failed to read ref");
+            ref_content.trim().to_string()
+        } else {
+            let database = Database::new(self.git_path.join("objects").clone());
+            let objects = database.prefix_match(ref_name);
+            dbg!(objects);
             write_to_stderr(&format!("fatal: Not a valid object name: '{}'", ref_name)).unwrap();
             exit(1);
         }
-        let ref_content = fs::read_to_string(ref_path).expect("Failed to read ref");
-        ref_content.trim().to_string()
     }
 
     fn read_ref_content(&self) -> String {
