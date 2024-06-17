@@ -14,6 +14,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct Ref {
+    revision_pattern: String,
     name: String,
 }
 
@@ -25,6 +26,7 @@ impl Ref {
 #[derive(Debug, Clone)]
 pub struct Parent {
     rev: Box<Revision>,
+    revision_pattern: String,
 }
 
 impl Parent {
@@ -34,7 +36,11 @@ impl Parent {
         match content {
             Some(c) => Some(c),
             None => {
-                let output = format!("fatal: Not a valid object name: '{}'", ref_content.unwrap());
+                let output = format!(
+                    "fatal: Not a valid object name: '{}'",
+                    self.revision_pattern
+                );
+
                 write_to_stderr(&output).unwrap();
                 exit(1);
             }
@@ -45,13 +51,13 @@ impl Parent {
 #[derive(Debug, Clone)]
 pub struct Ancestor {
     rev: Box<Revision>,
+    revision_pattern: String,
     num: i32,
 }
 
 impl Ancestor {
     pub fn resolve(&self, context: &Refs) -> Option<String> {
         let mut oid = self.rev.resolve(context);
-
         for _ in 0..self.num {
             let parent = context.commit_parent(Some(&oid.as_ref().unwrap()));
             match parent {
@@ -59,7 +65,11 @@ impl Ancestor {
                     oid = Some(p);
                 }
                 None => {
-                    write_to_stderr("fatal: Not a valid object name: 'HEAD'").unwrap();
+                    let output = format!(
+                        "fatal: Not a valid object name: '{}'",
+                        self.revision_pattern
+                    );
+                    write_to_stderr(&output).unwrap();
                     exit(1);
                 }
             }
@@ -85,7 +95,7 @@ impl Revision {
     }
 }
 
-pub fn parse_revision(pattern: &str) -> Revision {
+pub fn parse_revision(pattern: &str, revision_pattern: &str) -> Revision {
     let parent_re = Regex::new(r"^(.+)\^$").unwrap();
     let revision_re = Regex::new(r"^(.+)~(\d+)$").unwrap();
 
@@ -93,28 +103,34 @@ pub fn parse_revision(pattern: &str) -> Revision {
         let caps = parent_re.captures(pattern).unwrap();
         let rev = caps.get(1).unwrap().as_str();
 
-        let ref_type = parse_revision(rev);
+        let ref_type = parse_revision(rev, revision_pattern);
         let box_ref_type = Box::new(ref_type);
-        return Revision::Parent(Parent { rev: box_ref_type });
+        return Revision::Parent(Parent {
+            rev: box_ref_type,
+            revision_pattern: revision_pattern.to_string(),
+        });
     } else if revision_re.is_match(pattern) {
         let caps = revision_re.captures(pattern).unwrap();
         let rev = caps.get(1).unwrap().as_str();
         let num = caps.get(2).unwrap().as_str().parse::<i32>().unwrap();
 
-        let ref_type = parse_revision(rev);
+        let ref_type = parse_revision(rev, revision_pattern);
         let box_ref_type = Box::new(ref_type);
         return Revision::Ancestor(Ancestor {
             rev: box_ref_type,
             num,
+            revision_pattern: revision_pattern.to_string(),
         });
     } else {
         if pattern == "@" || pattern == "HEAD" {
             return Revision::Ref(Ref {
                 name: "master".to_string(),
+                revision_pattern: revision_pattern.to_string(),
             });
         }
         return Revision::Ref(Ref {
             name: pattern.to_string(),
+            revision_pattern: revision_pattern.to_string(),
         });
     }
 }
@@ -148,6 +164,7 @@ impl Refs {
         }
     }
 
+    /// Get all commits in the current branch
     pub fn get_all_commits(&self) -> Result<Vec<Commit>> {
         let mut head = self.read_head().unwrap();
         let database = Database::new(self.git_path.join("objects").clone());
@@ -268,6 +285,7 @@ impl Refs {
         Ok(())
     }
 
+    /// Get the content of the ref pointed to by HEAD
     pub fn get_ref_content(&self) -> String {
         let ref_path = self.get_ref_path();
         if !ref_path.exists() {
@@ -278,15 +296,27 @@ impl Refs {
         ref_content.trim().to_string()
     }
 
+    /// Get the content of a specific ref. This content is the commit hash of the ref.
+    /// # Arguments
+    /// * `ref_name` - The name of the ref
+    /// # Returns
+    /// * The content of the ref
     pub fn get_specific_ref_content(&self, ref_name: &str) -> String {
         let ref_path = self.git_path.join("refs/heads").join(ref_name);
-        // dbg!(&ref_path);
-        if !ref_path.exists() {
+        if ref_path.exists() {
+            let ref_content = fs::read_to_string(ref_path).expect("Failed to read ref");
+            ref_content.trim().to_string()
+        } else {
+            let database = Database::new(self.git_path.join("objects").clone());
+            let objects = database.prefix_match(ref_name);
+
+            if objects.len() >= 1 {
+                return objects[0].oid.clone().unwrap();
+            } else {
             write_to_stderr(&format!("fatal: Not a valid object name: '{}'", ref_name)).unwrap();
             exit(1);
+            }
         }
-        let ref_content = fs::read_to_string(ref_path).expect("Failed to read ref");
-        ref_content.trim().to_string()
     }
 
     fn read_ref_content(&self) -> String {

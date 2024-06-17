@@ -332,3 +332,248 @@ fn test_revisions_in_branch_command() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn test_valid_plain_commit_based_branches() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+    setup_fs(&temp_dir).expect("Failed to setup fs");
+    setup_rgit(&temp_dir.path().to_path_buf()).expect("Failed to setup rgit");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Initial commit")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("b.txt")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Second commit")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("c.txt")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Third commit")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+    .arg("add")
+    .arg("d.txt")
+    .assert()
+    .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+    .arg("commit")
+    .arg("-m")
+    .arg("Fourth commit")
+    .assert()
+    .success();
+
+    let refs = Refs::new(temp_dir.path().join(".rgit"));
+    let all_commits = refs.get_all_commits()?;
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("branch")
+        .arg("test-branch_1")
+        .arg(all_commits[0].oid.clone().unwrap()[..6].to_string() + "^")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("branch")
+        .arg("test-branch_2")
+        .arg(all_commits[1].oid.clone().unwrap()[..6].to_string() + "^")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("branch")
+        .arg("test-branch_3")
+        .arg(all_commits[2].oid.clone().unwrap()[..6].to_string() + "^")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("branch")
+        .arg("test-branch_4")
+        .arg(all_commits[0].oid.clone().unwrap()[..6].to_string() + "~2")
+        .assert()
+        .success();
+
+    let test_branch_1_content = refs.get_specific_ref_content("test-branch_1");
+    let test_branch_2_content = refs.get_specific_ref_content("test-branch_2");
+    let test_branch_3_content = refs.get_specific_ref_content("test-branch_3");
+    let test_branch_4_content = refs.get_specific_ref_content("test-branch_4");
+
+    let head_parent_oid = all_commits[1].oid.clone().unwrap();
+    assert_eq!(test_branch_1_content, head_parent_oid);
+
+    let head_grand_parent_oid = all_commits[2].oid.clone().unwrap();
+    assert_eq!(test_branch_2_content, head_grand_parent_oid);
+
+    let head_grand_grand_parent_oid = all_commits[3].oid.clone().unwrap();
+    assert_eq!(test_branch_3_content, head_grand_grand_parent_oid);
+
+    assert_eq!(test_branch_4_content, head_grand_parent_oid);
+
+
+    Ok(())
+
+}
+
+
+#[test]
+fn test_valid_commit_based_reivsions() -> Result<()> {
+    let temp_dir = TempDir::new("test_rgit").expect("Failed to create temp dir");
+    setup_fs(&temp_dir).expect("Failed to setup fs");
+    setup_rgit(&temp_dir.path().to_path_buf()).expect("Failed to setup rgit");
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("a.txt")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Initial commit")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("b.txt")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Second commit")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("add")
+        .arg("c.txt")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("commit")
+        .arg("-m")
+        .arg("Third commit")
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+    .arg("add")
+    .arg("d.txt")
+    .assert()
+    .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+    .arg("commit")
+    .arg("-m")
+    .arg("Fourth commit")
+    .assert()
+    .success();
+
+    let refs = Refs::new(temp_dir.path().join(".rgit"));
+    let all_commits = refs.get_all_commits()?;
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("branch")
+        .arg("test-branch_1")
+        .arg(all_commits[0].oid.clone().unwrap()[..6].to_string())
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("branch")
+        .arg("test-branch_2")
+        .arg(all_commits[1].oid.clone().unwrap()[..6].to_string())
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("branch")
+        .arg("test-branch_3")
+        .arg(all_commits[2].oid.clone().unwrap()[..6].to_string())
+        .assert()
+        .success();
+
+    let mut cmd = get_rgit_cmd();
+    cmd.current_dir(&temp_dir)
+        .arg("branch")
+        .arg("test-branch_4")
+        .arg(all_commits[3].oid.clone().unwrap()[..6].to_string())
+        .assert()
+        .success();
+
+    let test_branch_1_content = refs.get_specific_ref_content("test-branch_1");
+    let test_branch_2_content = refs.get_specific_ref_content("test-branch_2");
+    let test_branch_3_content = refs.get_specific_ref_content("test-branch_3");
+    let test_branch_4_content = refs.get_specific_ref_content("test-branch_4");
+
+    let head_oid = all_commits[0].oid.clone().unwrap();
+    assert_eq!(test_branch_1_content, head_oid);
+
+    let head_parent_oid = all_commits[1].oid.clone().unwrap();
+    assert_eq!(test_branch_2_content, head_parent_oid);
+
+    let head_grand_parent_oid = all_commits[2].oid.clone().unwrap();
+    assert_eq!(test_branch_3_content, head_grand_parent_oid);
+
+    let head_grand_grand_parent_oid = all_commits[3].oid.clone().unwrap();
+    assert_eq!(test_branch_4_content, head_grand_grand_parent_oid);
+
+    Ok(())
+
+}

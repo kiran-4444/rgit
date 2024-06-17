@@ -37,7 +37,7 @@ impl BranchCMD {
             } else if name.len() == 2 {
                 let branch_name = &name[0];
                 let rev = &name[1];
-                let revision_object = parse_revision(rev);
+                let revision_object = parse_revision(rev, rev);
                 let oid = revision_object.resolve(&refs).expect("OID");
                 refs.create_branch(branch_name, &oid)?;
             } else {
