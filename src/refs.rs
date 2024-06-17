@@ -58,7 +58,6 @@ pub struct Ancestor {
 impl Ancestor {
     pub fn resolve(&self, context: &Refs) -> Option<String> {
         let mut oid = self.rev.resolve(context);
-
         for _ in 0..self.num {
             let parent = context.commit_parent(Some(&oid.as_ref().unwrap()));
             match parent {
@@ -165,6 +164,7 @@ impl Refs {
         }
     }
 
+    /// Get all commits in the current branch
     pub fn get_all_commits(&self) -> Result<Vec<Commit>> {
         let mut head = self.read_head().unwrap();
         let database = Database::new(self.git_path.join("objects").clone());
@@ -285,6 +285,7 @@ impl Refs {
         Ok(())
     }
 
+    /// Get the content of the ref pointed to by HEAD
     pub fn get_ref_content(&self) -> String {
         let ref_path = self.get_ref_path();
         if !ref_path.exists() {
@@ -295,6 +296,11 @@ impl Refs {
         ref_content.trim().to_string()
     }
 
+    /// Get the content of a specific ref. This content is the commit hash of the ref.
+    /// # Arguments
+    /// * `ref_name` - The name of the ref
+    /// # Returns
+    /// * The content of the ref
     pub fn get_specific_ref_content(&self, ref_name: &str) -> String {
         let ref_path = self.git_path.join("refs/heads").join(ref_name);
         if ref_path.exists() {
@@ -303,9 +309,13 @@ impl Refs {
         } else {
             let database = Database::new(self.git_path.join("objects").clone());
             let objects = database.prefix_match(ref_name);
-            dbg!(objects);
+
+            if objects.len() >= 1 {
+                return objects[0].oid.clone().unwrap();
+            } else {
             write_to_stderr(&format!("fatal: Not a valid object name: '{}'", ref_name)).unwrap();
             exit(1);
+            }
         }
     }
 

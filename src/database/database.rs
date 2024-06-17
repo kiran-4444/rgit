@@ -238,14 +238,13 @@ impl<'a> Database {
         Ok(())
     }
 
-    pub fn prefix_match(&self, prefix: &str) -> Vec<String> {
+    pub fn prefix_match(&self, prefix: &str) -> Vec<Commit> {
         let commits = self.read_commits().unwrap();
-        dbg!(&commits);
 
         let mut matched = Vec::new();
         for commit in commits {
-            if commit.message.starts_with(prefix) {
-                matched.push(commit.oid.unwrap());
+            if commit.oid.clone().expect("no OID found").starts_with(prefix) {
+                matched.push(commit.clone());
             }
         }
 
